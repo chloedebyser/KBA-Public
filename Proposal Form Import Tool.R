@@ -11,11 +11,15 @@ library(sf)
 library(stringi)
 
 #### Processing ####
-ProposalForm_to_KBAEBAR <- function(formPath, gdbPath, KBASiteID){
+ProposalForm_to_KBAEBAR <- function(formName, gdbName, KBASiteID){
   
     # ** LOAD KEY INFORMATION **
+    # Paths to the spreadsheets and geodatabases folders
+    spreadsheetsPath <- "C:/GIS/EBAR/temp/KBAProposalForm/spreadsheets/"
+    gdbsPath <- "C:/GIS/EBAR/temp/KBAProposalForm/gdbs/"
+  
     # Load proposal form
-    wb <- loadWorkbook(formPath)
+    wb <- loadWorkbook(paste0(spreadsheetsPath, formName))
     
     # Load proposal form sheets
           # HOME
@@ -58,7 +62,7 @@ ProposalForm_to_KBAEBAR <- function(formPath, gdbPath, KBASiteID){
       as.POSIXlt(., format='%Y/%m/%d')
     
     # Load KBA Service data
-    KBASite <- st_read(dsn=gdbPath, layer="KBASite") %>%
+    KBASite <- st_read(dsn=paste0(gdbsPath, gdbName), layer="KBASite") %>%
       filter(kbasiteid == KBASiteID)
     
     # ** CHECKS **
@@ -75,7 +79,7 @@ ProposalForm_to_KBAEBAR <- function(formPath, gdbPath, KBASiteID){
              disclaimer_fr = paste0("<p>Les informations présentées sont à jour en date du ", format(dateAssessed, '%Y/%m/%d'), " (date d'évaluation de la KBA). Si vous avez des informations plus récentes à propos du site, merci de <a href='/fr/contact-us/'>nous contacter</a>.</p>"))
     
     # ** SAVE TO GEODATABASE **
-    st_write(KBASite, dsn=gdbPath, layer="KBASite")
+    st_write(KBASite, dsn=paste0(gdbsPath, gdbName), layer="KBASite")
     output <- "SUCCESS"
     
     return(output)
