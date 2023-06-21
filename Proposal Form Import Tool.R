@@ -10,44 +10,46 @@ library(magrittr)
 library(sf)
 library(stringi)
 
-# Parameters
-proposalFolder <- "C:/GIS/EBAR/temp/KBAProposalForm/spreadsheets/"
-gdbFolder <- "C:/GIS/EBAR/temp/KBAProposalForm/gdbs/"
-
 #### Processing ####
 ProposalForm_to_KBAEBAR <- function(formPath, gdbPath, KBASiteID){
   
     # ** LOAD KEY INFORMATION **
     # Load proposal form
-    wb <- loadWorkbook(paste0(proposalFolder, "/", formPath))
+    wb <- loadWorkbook(formPath)
     
     # Load proposal form sheets
-    # HOME
+          # HOME
     home <- read.xlsx(wb, sheet="HOME")
     
-    # 1. PROPOSER
+          # 1. PROPOSER
     proposer1 <- read.xlsx(wb, sheet="1. PROPOSER") %>%
       .[,2:3] %>%
       rename(Field = X2, Entry = X3)
     
-    # 2. SITE
+          # 2. SITE
     site2 <- read.xlsx(wb, sheet="2. SITE") %>%
       .[,2:4] %>%
       rename(Field = X2)
     
     # Load key values
-    # KBA Canada Form version
+          # KBA Canada Form version
     formVersion <- home[1,1] %>%
       gsub("Version ", "", .) %>%
       as.numeric()
     
-    # Site name
-    siteName <- site2 %>% filter(Field == "National name") %>% pull(GENERAL) %>% trimws()
+          # Site name
+    siteName <- site2 %>%
+      filter(Field == "National name") %>%
+      pull(GENERAL) %>%
+      trimws()
     
-    # Site ID
-    KBASiteID <- site2 %>% filter(Field == "KBA-EBAR Database ID") %>% pull(GENERAL) %>% as.integer()
+          # Site ID
+    KBASiteID <- site2 %>%
+      filter(Field == "KBA-EBAR Database ID") %>%
+      pull(GENERAL) %>%
+      as.integer()
     
-    # Date assessed
+          # Date assessed
     dateAssessed <- site2 %>%
       filter(Field == "Date (dd/mm/yyyy)") %>%
       pull(GENERAL) %>%
@@ -55,14 +57,14 @@ ProposalForm_to_KBAEBAR <- function(formPath, gdbPath, KBASiteID){
       as.Date(., format="%d/%m/%Y") %>%
       as.POSIXlt(., format='%Y/%m/%d')
     
-    # KBA Service data
-    KBASite <- KBASite_input %>%
+    # Load KBA Service data
+    KBASite <- st_read(dsn=gdbPath, layer="KBASite") %>%
       filter(kbasiteid == KBASiteID)
     
     # ** CHECKS **
     # Check that the site name is identical in the proposal form and in the database
     if(!siteName == KBASite$nationalname){
-      output <- c(errors, paste("ERROR -", formPath, "not processed: site name is different in the proposal form and in the database."))
+      output <- paste("ERROR -", siteName, "not processed: site name is different in the proposal form and in the database.")
       stop()
     }
     
