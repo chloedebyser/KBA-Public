@@ -11,14 +11,11 @@ library(sf)
 library(stringi)
 
 # Parameters
-proposalFolder <- "C:/GIS/EBAR/temp/KBAProposalForm/input/"
-gdbFolder <- "C:/GIS/EBAR/temp/KBAProposalForm/output/"
+proposalFolder <- "C:/GIS/EBAR/temp/KBAProposalForm/spreadsheets/"
+gdbFolder <- "C:/GIS/EBAR/temp/KBAProposalForm/gdbs/"
 
 #### Processing ####
-formPaths <- list.files(proposalFolder)
-errors <- c()
-
-ProposalForm_to_KBAEBAR <- function(formPath, KBASiteID){
+ProposalForm_to_KBAEBAR <- function(formPath, gdbPath, KBASiteID){
   
     # ** LOAD KEY INFORMATION **
     # Load proposal form
@@ -65,8 +62,8 @@ ProposalForm_to_KBAEBAR <- function(formPath, KBASiteID){
     # ** CHECKS **
     # Check that the site name is identical in the proposal form and in the database
     if(!siteName == KBASite$nationalname){
-      errors <- c(errors, paste("ERROR -", formPath, "not processed: site name is different in the proposal form and in the database."))
-      next()
+      output <- c(errors, paste("ERROR -", formPath, "not processed: site name is different in the proposal form and in the database."))
+      stop()
     }
     
     # ** POPULATE KBA SERVICE **
@@ -76,10 +73,8 @@ ProposalForm_to_KBAEBAR <- function(formPath, KBASiteID){
              disclaimer_fr = paste0("<p>Les informations présentées sont à jour en date du ", format(dateAssessed, '%Y/%m/%d'), " (date d'évaluation de la KBA). Si vous avez des informations plus récentes à propos du site, merci de <a href='/fr/contact-us/'>nous contacter</a>.</p>"))
     
     # ** SAVE TO GEODATABASE **
-    st_write(KBASite, dsn=paste0(gdbFolder, siteName, ".gdb"), layer="KBASite")
+    st_write(KBASite, dsn=gdbPath, layer="KBASite")
+    output <- "SUCCESS"
+    
+    return(output)
 }
-
-
-# NOTE:
-# - KBASite_output: Use this simple feature collection to update KBASite in the database
-# - errors: A vector of text entries describing errors encountered
