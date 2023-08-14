@@ -419,7 +419,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
 }
 
 #### KBA-EBAR Database - Load data ####
-read_KBAEBARDatabase <- function(datasetNames){
+read_KBAEBARDatabase <- function(datasetNames, environmentPath){
 
   # Database parameters
   DBusername <- "kbapipeline"
@@ -450,7 +450,7 @@ read_KBAEBARDatabase <- function(datasetNames){
   }
 
   # Load password and CRS
-  load("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/0. R Codes/KBA-Pipeline/Environment.RData")
+  load(environmentPath)
     
   # Get KBA-EBAR token
   response <- httr::POST("https://gis.natureserve.ca/portal/sharing/rest/generateToken",
