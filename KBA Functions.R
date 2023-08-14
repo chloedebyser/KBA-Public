@@ -489,13 +489,29 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
       data %<>% st_transform(., crs)
     }
     
-    # Format created_date and last_edited_date
+    # Format dates
     if("created_date" %in% colnames(data)){
       data %<>% mutate(created_date = as.POSIXct(as.numeric(created_date)/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
     if("last_edited_date" %in% colnames(data)){
       data %<>% mutate(last_edited_date = as.POSIXct(as.numeric(last_edited_date)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
+    if("statuschangedate" %in% colnames(data)){
+      data %<>% mutate(statuschangedate = as.POSIXct(as.numeric(statuschangedate)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
+    if("confirmdate" %in% colnames(data)){
+      data %<>% mutate(confirmdate = as.POSIXct(as.numeric(confirmdate)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
+    if("publishdate" %in% colnames(data)){
+      data %<>% mutate(publishdate = as.POSIXct(as.numeric(publishdate)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
+    if("dateassessed" %in% colnames(data)){
+      data %<>% mutate(dateassessed = as.POSIXct(as.numeric(dateassessed)/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
     # Format IDs
@@ -507,16 +523,10 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
           # Format ID columns
     data %<>% mutate_at(.vars = idColumns, .funs = as.integer)
     
-    # Additional formatting of dates and other special fields
+    # Additional misc. formatting
     if(name == "KBASite"){
-      data %<>%
-        mutate(sitestatus = as.integer(sitestatus),
-               statuschangedate = as.POSIXct(as.numeric(statuschangedate)/1000, origin = "1970-01-01", tz = "GMT"),
-               confirmdate = as.POSIXct(confirmdate/1000, origin = "1970-01-01", tz = "GMT"),
-               publishdate = as.POSIXct(publishdate/1000, origin = "1970-01-01", tz = "GMT"))
+      data %<>% mutate(sitestatus = as.integer(sitestatus))
       
-    }else if(name %in% c("SpeciesAssessment", "EcosystemAssessment")){
-      data %<>% mutate(dateassessed = as.POSIXct(dateassessed/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
     # Rename dataset
