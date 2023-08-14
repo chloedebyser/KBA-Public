@@ -489,6 +489,15 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
       data %<>% st_transform(., crs)
     }
     
+    # Format IDs
+          # Get columns that hold IDs
+    idColumns <- colnames(data) %>%
+      .[which(endsWith(., "id"))] %>%
+      .[which(!. == "globalid")]
+    
+          # Format ID columns
+    data %<>% mutate_at(.vars = idColumns, .funs = as.integer)
+    
     # Format dates
     if("created_date" %in% colnames(data)){
       data %<>% mutate(created_date = as.POSIXct(as.numeric(created_date)/1000, origin = "1970-01-01", tz = "GMT"))
@@ -514,19 +523,42 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
       data %<>% mutate(dateassessed = as.POSIXct(as.numeric(dateassessed)/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
-    # Format IDs
-          # Get columns that hold IDs
-    idColumns <- colnames(data) %>%
-      .[which(endsWith(., "id"))] %>%
-      .[which(!. == "globalid")]
-    
-          # Format ID columns
-    data %<>% mutate_at(.vars = idColumns, .funs = as.integer)
-    
-    # Additional misc. formatting
-    if(name == "KBASite"){
+    # Format integers
+    if("sitestatus" %in% colnames(data)){
       data %<>% mutate(sitestatus = as.integer(sitestatus))
-      
+    }
+    
+    if("ru_min" %in% colnames(data)){
+      data %<>% mutate(ru_min = as.integer(ru_min))
+    }
+    
+    # Format doubles
+    if("percentatsite" %in% colnames(data)){
+      data %<>% mutate(percentatsite = as.numeric(percentatsite))
+    }
+    
+    if("siteestimate_min" %in% colnames(data)){
+      data %<>% mutate(siteestimate_min = as.numeric(siteestimate_min))
+    }
+    
+    if("siteestimate_best" %in% colnames(data)){
+      data %<>% mutate(siteestimate_best = as.numeric(siteestimate_best))
+    }
+    
+    if("siteestimate_max" %in% colnames(data)){
+      data %<>% mutate(siteestimate_max = as.numeric(siteestimate_max))
+    }
+    
+    if("referenceestimate_min" %in% colnames(data)){
+      data %<>% mutate(referenceestimate_min = as.numeric(referenceestimate_min))
+    }
+    
+    if("referenceestimate_best" %in% colnames(data)){
+      data %<>% mutate(referenceestimate_best = as.numeric(referenceestimate_best))
+    }
+    
+    if("referenceestimate_max" %in% colnames(data)){
+      data %<>% mutate(referenceestimate_max = as.numeric(referenceestimate_max))
     }
     
     # Rename dataset
