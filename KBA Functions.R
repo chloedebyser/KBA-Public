@@ -515,7 +515,7 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
                confirmdate = as.POSIXct(confirmdate/1000, origin = "1970-01-01", tz = "GMT"),
                publishdate = as.POSIXct(publishdate/1000, origin = "1970-01-01", tz = "GMT"))
       
-    }if(name %in% c("SpeciesAssessment", "EcosystemAssessment")){
+    }else if(name %in% c("SpeciesAssessment", "EcosystemAssessment")){
       data %<>% mutate(dateassessed = as.POSIXct(dateassessed/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
