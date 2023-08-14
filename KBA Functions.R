@@ -507,13 +507,16 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
           # Format ID columns
     data %<>% mutate_at(.vars = idColumns, .funs = as.integer)
     
-    # Additional formatting for KBASite only
+    # Additional formatting of dates and other special fields
     if(name == "KBASite"){
       data %<>%
         mutate(sitestatus = as.integer(sitestatus),
                statuschangedate = as.POSIXct(as.numeric(statuschangedate)/1000, origin = "1970-01-01", tz = "GMT"),
                confirmdate = as.POSIXct(confirmdate/1000, origin = "1970-01-01", tz = "GMT"),
                publishdate = as.POSIXct(publishdate/1000, origin = "1970-01-01", tz = "GMT"))
+      
+    }if(name %in% c("SpeciesAssessment", "EcosystemAssessment")){
+      data %<>% mutate(dateassessed = as.POSIXct(dateassessed/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
     # Rename dataset
