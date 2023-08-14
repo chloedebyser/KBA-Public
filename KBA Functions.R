@@ -534,31 +534,31 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
     
     # Format doubles
     if("percentatsite" %in% colnames(data)){
-      data %<>% mutate(percentatsite = as.numeric(percentatsite))
+      data %<>% mutate(percentatsite = round(as.numeric(percentatsite), 2))
     }
     
     if("siteestimate_min" %in% colnames(data)){
-      data %<>% mutate(siteestimate_min = as.numeric(siteestimate_min))
+      data %<>% mutate(siteestimate_min = round(as.numeric(siteestimate_min), 2))
     }
     
     if("siteestimate_best" %in% colnames(data)){
-      data %<>% mutate(siteestimate_best = as.numeric(siteestimate_best))
+      data %<>% mutate(siteestimate_best = round(as.numeric(siteestimate_best), 2))
     }
     
     if("siteestimate_max" %in% colnames(data)){
-      data %<>% mutate(siteestimate_max = as.numeric(siteestimate_max))
+      data %<>% mutate(siteestimate_max = round(as.numeric(siteestimate_max), 2))
     }
     
     if("referenceestimate_min" %in% colnames(data)){
-      data %<>% mutate(referenceestimate_min = as.numeric(referenceestimate_min))
+      data %<>% mutate(referenceestimate_min = round(as.numeric(referenceestimate_min), 2))
     }
     
     if("referenceestimate_best" %in% colnames(data)){
-      data %<>% mutate(referenceestimate_best = as.numeric(referenceestimate_best))
+      data %<>% mutate(referenceestimate_best = round(as.numeric(referenceestimate_best), 2))
     }
     
     if("referenceestimate_max" %in% colnames(data)){
-      data %<>% mutate(referenceestimate_max = as.numeric(referenceestimate_max))
+      data %<>% mutate(referenceestimate_max = round(as.numeric(referenceestimate_max), 2))
     }
     
     # Rename dataset
