@@ -634,7 +634,6 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
         data %<>% filter(ecosystemassessmentid %in% EcosystemAssessment$ecosystemassessmentid)
       }
       
-      
       if(name == "BiodivElementDistribution"){
         biodivelementdistributionids <- c(SpeciesAtSite$biodivelementdistributionid, EcosystemAtSite$biodivelementdistributionid) %>% .[which(!is.na(.))]
         data %<>% filter(biodivelementdistributionid %in% biodivelementdistributionids)
