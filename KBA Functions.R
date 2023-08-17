@@ -567,7 +567,7 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
 }
 
 #### KBA-EBAR Database - Filter data ####
-filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetNames){
+filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetNames, inputPrefix, outputPrefix){
   
   # Database parameters
   DBdatasets <- list(c("KBASite", "KBA_View/FeatureServer/0", T),
@@ -596,12 +596,21 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
     DBdatasets <- DBdatasets[which(DBdatasets %in% datasetNames)]
   }
   
+  # Set prefixes, if not specified manually
+  if(missing(inputPrefix)){
+    inputPrefix <- "DB"
+  }
+  
+  if(missing(outputPrefix)){
+    outputPrefix <- "DBS"
+  }
+  
   # Filter KBA-EBAR data
   for(i in 1:length(DBdatasets)){
     
     # Parameters
     name <- DBdatasets[[i]][1]
-    data <- get(paste0("DB_", name))
+    data <- get(paste0(inputPrefix, "_", name))
     
     # Filtering
     if(nrow(data) > 0){
@@ -646,11 +655,11 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
     
     # Rename dataset
     assign(name, data)
-    assign(paste0("DBS_", name), data, envir = .GlobalEnv)
+    assign(paste0(outputPrefix, "_", name), data, envir = .GlobalEnv)
     
     # Remove unfiltered dataset, if applicable
     if(RMUnfilteredDatasets){
-      rm(list=paste0("DB_", name), envir = .GlobalEnv)
+      rm(list=paste0(inputPrefix, "_", name), envir = .GlobalEnv)
     }
   }
 }
@@ -767,6 +776,7 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 }
 
 #### Full Site Proposal - Check data validity ####
+# Add check that meetscriteria is never NA
 check_KBADataValidity <- function(){
   
   # Starting parameters
@@ -1111,4 +1121,194 @@ check_KBADataValidity <- function(){
   
   # Return end parameters
   return(list(error, message))
+}
+
+#### Full Site Proposal - Summarize KBA criteria met ####
+summary_KBAcriteria <-  function(prefix, language, referencePath){
+  
+  # Get crosswalks
+        # KBA_Group
+  KBAgroups <- read.xlsx(paste0(referencePath, "KBA_Group.xlsx"))
+  
+        # criterionHeader
+  criterionHeader <- read.xlsx(paste0(referencePath, "CriterionHeader.xlsx"))  
+  
+  # Species
+        # Get data
+  speciesatsite <- get(paste0(prefix, "_", "SpeciesAtSite"))
+  speciesBiotics <- get(paste0(prefix, "_", "BIOTICS_ELEMENT_NATIONAL"))
+  
+        # Add informal taxonomic group
+  speciesatsite %<>%
+    left_join(., speciesBiotics[, c("speciesid", "kba_group")], by="speciesid") %>%
+    select(kba_group, globalcriteria, nationalcriteria)
+  
+  # Ecosystems
+        # Get data
+  ecosystematsite <- get(paste0(prefix, "_", "EcosystemAtSite"))
+  ecosystemBiotics <- get(paste0(prefix, "_", "BIOTICS_ECOSYSTEM"))
+  
+        # Add informal classification group
+  ecosystematsite %<>%
+    left_join(., ecosystemBiotics[, c("ecosystemid", "subclass_name")], by="ecosystemid") %>%
+    rename(kba_group = subclass_name) %>%
+    select(kba_group, globalcriteria, nationalcriteria)
+  
+  # All biodiversity elements
+  biodivelements <- bind_rows(speciesatsite, ecosystematsite) %>%
+    pivot_longer(cols=c("globalcriteria", "nationalcriteria"), names_to="level", values_to="criteriamet") %>%
+    mutate(level = gsub("criteria", "", level)) %>%
+    separate_rows(criteriamet, sep="; ") %>%
+    mutate(criteriamet = substr(criteriamet, start=1, stop=2)) %>%
+    unique() %>%
+    drop_na(criteriamet)
+  
+  # Check that all biodiversity elements have an assigned kba_group
+  if(sum(is.na(biodivelements$kba_group)) > 0){
+    stop("Some biodiversity elements do not have an assigned kba_group.")
+  }
+  
+  # Translate the kba_group
+  if(language == "EN"){
+    biodivelements %<>% mutate(kba_group_translated = kba_group)
+  }
+  
+  if(language == "FR"){
+    biodivelements %<>%
+      left_join(., KBAgroups[, c("KBA_Group_EN", "KBA_Group_FR")], by=c("kba_group" = "KBA_Group_EN")) %>%
+      rename(kba_group_translated = "KBA_Group_FR")
+  }
+  
+  if(language == "ES"){
+    biodivelements %<>%
+      left_join(., KBAgroups[, c("KBA_Group_EN", "KBA_Group_ES")], by=c("kba_group" = "KBA_Group_EN")) %>%
+      rename(kba_group_translated = "KBA_Group_ES")
+  }
+  
+  # Get prepositions, for FR only
+  if(language == "FR"){
+    biodivelements %<>% mutate(preposition = sapply(kba_group_translated, function(x) ifelse(substr(x, start=1, stop=1) %in% c("A", "E", "I", "O", "U", "Y"), "d'", "de ")))
+    
+  }else{
+    biodivelements %<>% mutate(preposition = NA)
+  }
+  
+  # Sort groups by alphabetical order, for consistency
+  biodivelements %<>% arrange(criteriamet, kba_group_translated)
+  
+  # Initialize final text
+  finalText <- c()
+  finalText_level <- c()
+  
+  # Create text
+  for(level in biodivelements$level){
+    
+    for(criterion in biodivelements %>% filter(level == level) %>% pull(criteriamet)){
+      
+      # Get the biodiversity elements that meet the criterion at that level
+      biodivelements_criterion <- biodivelements %>%
+        filter((level == level) & (criteriamet == criterion))
+      
+      # Get the gender of the concatenated group
+      if(language %in% c("FR", "ES")){
+        
+        gender <- KBAgroups %>%
+          filter(KBA_Group_EN %in% biodivelements_criterion$kba_group) %>%
+          pull(paste0("Gender_", language))
+        
+        gender <- ifelse("M" %in% gender, "M", "F") # If there is a masculine noun then the group is masculine
+      }
+      
+      # Get header
+      headerLabel <- paste0("Header_", language, ifelse(language %in% c("FR", "ES"), paste0("_", gender), ""))
+      header <- criterionHeader %>%
+        filter(Criterion == criterion) %>%
+        pull(headerLabel)
+      
+      # Concatenate taxonomic groups
+      if(grepl("#", header, fixed=T)){
+        
+        groups <- biodivelements_criterion %>%
+          mutate(withpreposition = paste0(preposition, kba_group_translated)) %>%
+          pull(withpreposition) %>%
+          pasteEnumeration(string=., language=language)
+        
+        header <- gsub("#", "", header, fixed=T)
+        
+      }else{
+        groups <- pasteEnumeration(string=biodivelements_criterion$kba_group_translated, language=language)
+      }
+      
+      # Insert groups into header
+      header <- gsub("*", groups, header, fixed=T)
+      
+      # Final text
+      finalText <- c(finalText, paste0(str_to_sentence(header), " (", criterion, ")"))
+    }
+  
+    # Concatenate text for that level
+    if(language == "EN"){
+      text <- paste0(ifelse(level == "global", "GLOBAL: ", "NATIONAL: "), paste(finalText, sep="; "))
+    }
+    
+    if(language == "FR"){
+      text <- paste0(ifelse(level == "global", "MONDIAL: ", "NATIONAL: "), paste(finalText, sep="; "))
+    }
+    
+    if(language == "ES"){
+      text <- paste0(ifelse(level == "global", "GLOBAL: ", "NACIONAL: "), paste(finalText, sep="; "))
+    }
+    
+    # Final Text
+    finalText_level <- c(finalText_level, text)
+  }
+  
+  # Concatenate text across all levels
+  finalText <- paste0(paste(finalText_level, sep=". "), ".")
+
+  # Return final text
+  return(finalText)
+}
+
+#### Miscellaneous - Concatenate an enumeration, in EN, FR, or ES ####
+pasteEnumeration <- function(string, language){
+  
+  # Get string length
+  stringLength <- length(string)
+  
+  # Process
+  if(stringLength == 1){
+    finalText <- string
+    
+  }else if(stringLength == 2){
+    
+    if(language == "EN"){
+      finalText <- paste(string, sep=" and ")
+    }
+    
+    if(language == "FR"){
+      finalText <- paste(string, sep=" et ")
+    }
+    
+    if(language == "ES"){
+      finalText <- paste(string, sep=" y ")
+    }
+    
+  }else{
+    
+    if(language == "EN"){
+      finalText <- paste(paste(string[1:(length(string)-1)], sep=", "), string[length(string)], sep=", and ")
+    }
+    
+    if(language == "FR"){
+      finalText <- paste(paste(string[1:(length(string)-1)], sep=", "), string[length(string)], sep=", et ")
+    }
+    
+    if(language == "ES"){
+      finalText <- paste(paste(string[1:(length(string)-1)], sep=", "), string[length(string)], sep=", y ")
+    }
+  }
+  
+  # Return final text
+  return(finalText)
 }
