@@ -1201,7 +1201,7 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
   finalText_level <- c()
   
   # Create text
-  for(level in biodivelements$level){
+  for(level in unique(biodivelements$level)){
     
     for(criterion in biodivelements %>% filter(level == level) %>% pull(criteriamet)){
       
@@ -1248,15 +1248,15 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
   
     # Concatenate text for that level
     if(language == "EN"){
-      text <- paste0(ifelse(level == "global", "GLOBAL: ", "NATIONAL: "), paste(finalText, sep="; "))
+      text <- paste0(ifelse(level == "global", "GLOBAL: ", "NATIONAL: "), paste(finalText, collapse="; "))
     }
     
     if(language == "FR"){
-      text <- paste0(ifelse(level == "global", "MONDIAL: ", "NATIONAL: "), paste(finalText, sep="; "))
+      text <- paste0(ifelse(level == "global", "MONDIAL : ", "NATIONAL : "), paste(finalText, collapse="; "))
     }
     
     if(language == "ES"){
-      text <- paste0(ifelse(level == "global", "GLOBAL: ", "NACIONAL: "), paste(finalText, sep="; "))
+      text <- paste0(ifelse(level == "global", "GLOBAL: ", "NACIONAL: "), paste(finalText, collapse="; "))
     }
     
     # Final Text
@@ -1264,7 +1264,7 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
   }
   
   # Concatenate text across all levels
-  finalText <- paste0(paste(finalText_level, sep=". "), ".")
+  finalText <- paste0(paste(finalText_level, collapse=". "), ".")
 
   # Return final text
   return(finalText)
@@ -1283,29 +1283,29 @@ pasteEnumeration <- function(string, language){
   }else if(stringLength == 2){
     
     if(language == "EN"){
-      finalText <- paste(string, sep=" and ")
+      finalText <- paste(string, collapse=" and ")
     }
     
     if(language == "FR"){
-      finalText <- paste(string, sep=" et ")
+      finalText <- paste(string, collapse=" et ")
     }
     
     if(language == "ES"){
-      finalText <- paste(string, sep=" y ")
+      finalText <- paste(string, collapse=" y ")
     }
     
   }else{
     
     if(language == "EN"){
-      finalText <- paste(paste(string[1:(length(string)-1)], sep=", "), string[length(string)], sep=", and ")
+      finalText <- paste(paste(string[1:(length(string)-1)], collapse=", "), string[length(string)], collapse=", and ")
     }
     
     if(language == "FR"){
-      finalText <- paste(paste(string[1:(length(string)-1)], sep=", "), string[length(string)], sep=", et ")
+      finalText <- paste(paste(string[1:(length(string)-1)], collapse=", "), string[length(string)], collapse=", et ")
     }
     
     if(language == "ES"){
-      finalText <- paste(paste(string[1:(length(string)-1)], sep=", "), string[length(string)], sep=", y ")
+      finalText <- paste(paste(string[1:(length(string)-1)], collapse=", "), string[length(string)], collapse=", y ")
     }
   }
   
