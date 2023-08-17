@@ -1141,7 +1141,19 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
         # Add informal taxonomic group
   speciesatsite %<>%
     left_join(., speciesBiotics[, c("speciesid", "kba_group")], by="speciesid") %>%
-    select(kba_group, globalcriteria, nationalcriteria)
+    select(speciesatsiteid, kba_group, globalcriteria, nationalcriteria)
+  
+        # Remove taxonomic group information if sensitive
+  if(sensitiveSpp){
+    speciesatsite %<>%
+      left_join(., sensitiveSpeciesAtSite, by="speciesatsiteid") %>%
+      mutate(display_taxonomicgroup = ifelse(is.na(display_taxonomicgroup), "Yes", display_taxonomicgroup)) %>%
+      mutate(kba_group = ifelse(display_taxonomicgroup == "No", "Sensitive Species", kba_group)) %>%
+      select(-display_taxonomicgroup)
+  }
+  
+        # Remove speciesatsiteid
+  speciesatsite %<>% select(-speciesatsiteid)
   
   # Ecosystems
         # Get data
@@ -1160,7 +1172,7 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
     mutate(level = gsub("criteria", "", level)) %>%
     separate_rows(criteriamet, sep="; ") %>%
     mutate(criteriamet = substr(criteriamet, start=1, stop=2)) %>%
-    unique() %>%
+    distinct() %>%
     drop_na(criteriamet)
   
   # Check that all biodiversity elements have an assigned kba_group
@@ -1194,20 +1206,20 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
   }
   
   # Sort groups by alphabetical order, for consistency
-  biodivelements %<>% arrange(criteriamet, kba_group_translated)
+  biodivelements %<>% arrange(level, criteriamet, kba_group_translated)
   
   # Initialize final text
   finalText <- c()
   finalText_level <- c()
   
   # Create text
-  for(level in unique(biodivelements$level)){
+  for(global_national in unique(biodivelements$level)){
     
-    for(criterion in biodivelements %>% filter(level == level) %>% pull(criteriamet)){
+    for(criterion in biodivelements %>% filter(level == global_national) %>% pull(criteriamet) %>% unique()){
       
       # Get the biodiversity elements that meet the criterion at that level
       biodivelements_criterion <- biodivelements %>%
-        filter((level == level) & (criteriamet == criterion))
+        filter((level == global_national) & (criteriamet == criterion))
       
       # Get the gender of the concatenated group
       if(language %in% c("FR", "ES")){
@@ -1231,12 +1243,12 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
         groups <- biodivelements_criterion %>%
           mutate(withpreposition = paste0(preposition, kba_group_translated)) %>%
           pull(withpreposition) %>%
-          pasteEnumeration(string=., language=language)
+          pasteEnumeration(string=.)
         
         header <- gsub("#", "", header, fixed=T)
         
       }else{
-        groups <- pasteEnumeration(string=biodivelements_criterion$kba_group_translated, language=language)
+        groups <- pasteEnumeration(string=biodivelements_criterion$kba_group_translated)
       }
       
       # Insert groups into header
@@ -1248,19 +1260,22 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
   
     # Concatenate text for that level
     if(language == "EN"){
-      text <- paste0(ifelse(level == "global", "GLOBAL: ", "NATIONAL: "), paste(finalText, collapse="; "))
+      text <- paste0(ifelse(global_national == "global", "GLOBAL: ", "NATIONAL: "), paste(finalText, collapse="; "))
     }
     
     if(language == "FR"){
-      text <- paste0(ifelse(level == "global", "MONDIAL : ", "NATIONAL : "), paste(finalText, collapse="; "))
+      text <- paste0(ifelse(global_national == "global", "MONDIAL : ", "NATIONAL : "), paste(finalText, collapse="; "))
     }
     
     if(language == "ES"){
-      text <- paste0(ifelse(level == "global", "GLOBAL: ", "NACIONAL: "), paste(finalText, collapse="; "))
+      text <- paste0(ifelse(global_national == "global", "GLOBAL: ", "NACIONAL: "), paste(finalText, collapse="; "))
     }
     
     # Final Text
     finalText_level <- c(finalText_level, text)
+    
+    # Reset finalText
+    finalText <- c()
   }
   
   # Concatenate text across all levels
@@ -1271,7 +1286,7 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
 }
 
 #### Miscellaneous - Concatenate an enumeration, in EN, FR, or ES ####
-pasteEnumeration <- function(string, language){
+pasteEnumeration <- function(string){
   
   # Get string length
   stringLength <- length(string)
@@ -1282,31 +1297,11 @@ pasteEnumeration <- function(string, language){
     
   }else if(stringLength == 2){
     
-    if(language == "EN"){
-      finalText <- paste(string, collapse=" and ")
-    }
-    
-    if(language == "FR"){
-      finalText <- paste(string, collapse=" et ")
-    }
-    
-    if(language == "ES"){
-      finalText <- paste(string, collapse=" y ")
-    }
+    finalText <- paste(string, collapse=" & ")
     
   }else{
     
-    if(language == "EN"){
-      finalText <- paste(paste(string[1:(length(string)-1)], collapse=", "), string[length(string)], collapse=", and ")
-    }
-    
-    if(language == "FR"){
-      finalText <- paste(paste(string[1:(length(string)-1)], collapse=", "), string[length(string)], collapse=", et ")
-    }
-    
-    if(language == "ES"){
-      finalText <- paste(paste(string[1:(length(string)-1)], collapse=", "), string[length(string)], collapse=", y ")
-    }
+    finalText <- paste(paste(string[1:(length(string)-1)], collapse=", "), string[length(string)], collapse=" & ")
   }
   
   # Return final text
