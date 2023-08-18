@@ -561,6 +561,11 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
       data %<>% mutate(referenceestimate_max = round(as.numeric(referenceestimate_max), 2))
     }
     
+    # Format misc.
+    if("ivc_formatted_scientific_name_f" %in% colnames(data)){
+      data %<>% rename(ivc_formatted_scientific_name_fr = ivc_formatted_scientific_name_f)
+    }
+    
     # Rename dataset
     assign(paste0("DB_", name), data, envir = .GlobalEnv)
   }
