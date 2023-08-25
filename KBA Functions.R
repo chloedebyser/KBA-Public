@@ -438,6 +438,7 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
                      c("KBAThreat", "KBA_View/FeatureServer/12", F),
                      c("KBAAction", "KBA_View/FeatureServer/9", F),
                      c("KBALandCover", "KBA_View/FeatureServer/11", F),
+                     c("KBAProtectedArea", "KBA_View/FeatureServer/19", F),
                      c("OriginalDelineation", "KBA_View/FeatureServer/3", T),
                      c("BiodivElementDistribution", "KBA_View/FeatureServer/4", T),
                      c("KBACustomPolygon", "KBA_View/FeatureServer/1", T),
@@ -590,6 +591,7 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
                      c("KBAThreat", "KBA_View/FeatureServer/12", F),
                      c("KBAAction", "KBA_View/FeatureServer/9", F),
                      c("KBALandCover", "KBA_View/FeatureServer/11", F),
+                     c("KBAProtectedArea", "KBA_View/FeatureServer/19", F),
                      c("OriginalDelineation", "KBA_View/FeatureServer/3", T),
                      c("BiodivElementDistribution", "KBA_View/FeatureServer/4", T),
                      c("KBACustomPolygon", "KBA_View/FeatureServer/1", T),
@@ -620,7 +622,7 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
     # Filtering
     if(nrow(data) > 0){
       
-      if(name %in% c("KBASite", "SpeciesAtSite", "EcosystemAtSite", "KBACitation", "KBAThreat", "KBAAction", "KBALandCover", "OriginalDelineation", "KBAAcceptedSite")){
+      if(name %in% c("KBASite", "SpeciesAtSite", "EcosystemAtSite", "KBACitation", "KBAThreat", "KBAAction", "KBALandCover", "KBAProtectedArea", "OriginalDelineation", "KBAAcceptedSite")){
         data %<>% filter(kbasiteid %in% KBASiteIDs)
       }
       
@@ -781,7 +783,7 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 }
 
 #### Full Site Proposal - Check data validity ####
-# Add check that meetscriteria is never NA
+# TO DO: Add check that meetscriteria is never NA
 check_KBADataValidity <- function(){
   
   # Starting parameters
