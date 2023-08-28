@@ -524,6 +524,22 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
       data %<>% mutate(dateassessed = as.POSIXct(as.numeric(dateassessed)/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
+    if("iucn_assessmentdate" %in% colnames(data)){
+      data %<>% mutate(iucn_assessmentdate = as.POSIXct(as.numeric(iucn_assessmentdate)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
+    if("cosewic_date" %in% colnames(data)){
+      data %<>% mutate(cosewic_date = as.POSIXct(as.numeric(cosewic_date)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
+    if("g_rank_review_date" %in% colnames(data)){
+      data %<>% mutate(g_rank_review_date = as.POSIXct(as.numeric(g_rank_review_date)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
+    if("n_rank_review_date" %in% colnames(data)){
+      data %<>% mutate(n_rank_review_date = as.POSIXct(as.numeric(n_rank_review_date)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
     # Format integers
     if("sitestatus" %in% colnames(data)){
       data %<>% mutate(sitestatus = as.integer(sitestatus))
@@ -784,6 +800,7 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 
 #### Full Site Proposal - Check data validity ####
 # TO DO: Add check that meetscriteria is never NA
+# TO DO: Add checks on conservation status being used (i.e. that there needs to be a status at all - i.e. only A1 - and that it is the correct one)
 check_KBADataValidity <- function(){
   
   # Starting parameters
