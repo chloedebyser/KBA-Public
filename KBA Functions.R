@@ -1373,3 +1373,9 @@ pasteEnumeration <- function(string){
   # Return final text
   return(finalText)
 }
+
+#### Miscellaneous - Convert m2 to km2 ####
+m2tokm2 <- function(x){
+  y <- x/1000000
+  return(y)
+}
