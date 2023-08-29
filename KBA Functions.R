@@ -728,8 +728,44 @@ update_KBAEBARDataset <- function(dataset, id){
   newDataset <- get(paste0(dataset, "_new"))
   DBDataset <- get(paste0("DB_", dataset))
   
+  # Remove records that are duplicated in the old dataset but not in the new dataset
+  if(nrow(oldDataset) > 0){
+    
+        # Get record frequency
+    oldFreq <- oldDataset %>%
+      group_by(pick(-all_of(id))) %>%
+      summarise(freq = n(), .groups="drop")
+    
+    newFreq <- newDataset %>%
+      group_by(pick(-all_of(id))) %>%
+      summarise(freq = n(), .groups="drop")
+  
+        # Find duplicates in the old dataset that are not retained in the new dataset
+    extraRecords <- left_join(oldFreq, newFreq, by=cols[which(!cols == id)]) %>%
+      mutate(extra = freq.x - freq.y) %>%
+      select(-freq.x, -freq.y) %>%
+      left_join(oldDataset, ., by=cols[which(!cols == id)]) %>%
+      filter(extra > 0) %>%
+      mutate(extra = as.integer(extra))
+    
+        # Delete those duplicates
+    if(nrow(extraRecords) > 0){
+        
+      deletions <- extraRecords %>%
+        group_by(pick(-all_of(id))) %>%
+        summarise(delete = list(pick(all_of(id)) %>% slice_max(get(id), n = first(extra))), .groups="drop") %>%
+        unnest(delete) %>%
+        pull(all_of(id)) %>%
+        add_row(deletions, Dataset = dataset, ID = .)
+        
+      oldDataset %<>%
+        filter(!get(id) %in% deletions$ID)
+    }
+  }
+  
   # Get primary key
   if(nrow(newDataset) > 0){
+    
     newDataset %<>%
       left_join(., oldDataset, by=cols[which(!cols == id)]) %>%
       mutate({{id}} := get(paste0(id, ".y"))) %>%
@@ -761,6 +797,7 @@ update_KBAEBARDataset <- function(dataset, id){
   
   # Save to the parent environment
   assign(dataset, finalDataset, envir = parent.frame())
+  assign("deletions", deletions, envir = parent.frame())
   
   # Add to previous sites
   if(nrow(finalDataset) > 0){
