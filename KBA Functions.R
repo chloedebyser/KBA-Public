@@ -446,7 +446,10 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
                      c("BiodivElementDistribution", "KBA_View/FeatureServer/4", T),
                      c("KBACustomPolygon", "KBA_View/FeatureServer/1", T),
                      c("KBAInputPolygon", "KBA_View/FeatureServer/6", T),
-                     c("KBAAcceptedSite", "KBA_Accepted_Sites/FeatureServer/0", T))
+                     c("KBAAcceptedSite", "KBA_Accepted_Sites/FeatureServer/0", T),
+                     c("DatasetSource", "Restricted/FeatureServer/5", F),
+                     c("InputDataset", "Restricted/FeatureServer/7", F),
+                     c("ECCCRangeMap", "Restricted/FeatureServer/2", T))
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
@@ -471,10 +474,24 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
     address <- DBdatasets[[i]][2]
     spatial <- DBdatasets[[i]][3] %>% as.logical()
     
+    # Query
+    if(name == "ECCCRangeMap"){
+      
+      query <- DB_DatasetSource %>%
+        filter(datasetsourcename == "ECCC Range Maps") %>%
+        pull(datasetsourceid) %>%
+        {DB_InputDataset[which(DB_InputDataset$datasetsourceid %in% .), "inputdatasetid"]} %>%
+        {paste0("inputdatasetid IN (", paste(., collapse=","), ")")}
+      
+    }else{
+      
+      query <- "OBJECTID >= 0"
+    }
+    
     # Get GeoJSON
     url <- parse_url("https://gis.natureserve.ca/arcgis/rest/services")
     url$path <- paste(url$path, paste0("EBAR-KBA/", address, "/query"), sep = "/")
-    url$query <- list(where = "OBJECTID >= 0",
+    url$query <- list(where = query,
                       outFields = "*",
                       returnGeometry = "true",
                       f = "geojson")
