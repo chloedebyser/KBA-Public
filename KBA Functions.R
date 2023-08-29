@@ -422,10 +422,16 @@ read_KBACanadaProposalForm <- function(formPath, final){
 }
 
 #### KBA-EBAR Database - Load data ####
-read_KBAEBARDatabase <- function(datasetNames, environmentPath){
+read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account){
 
+  # Load password and CRS
+  if(!missing(environmentPath)){
+    load(environmentPath)
+  }
+  
   # Database parameters
-  DBusername <- "kbapipeline"
+  DBusername <- account
+  DBpswd <- get(paste0(account, "_pswd"))
   DBdatasets <- list(c("KBASite", "KBA_View/FeatureServer/0", T),
                      c("SpeciesAtSite", "KBA_View/FeatureServer/7", F),
                      c("Species", "KBA_View/FeatureServer/8", F),
@@ -449,20 +455,27 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
                      c("KBAAcceptedSite", "KBA_Accepted_Sites/FeatureServer/0", T),
                      c("DatasetSource", "Restricted/FeatureServer/5", F),
                      c("InputDataset", "Restricted/FeatureServer/7", F),
-                     c("ECCCRangeMap", "Restricted/FeatureServer/2", T))
+                     c("ECCCRangeMap", "Restricted/FeatureServer/2", T),
+                     c("RangeMap", "Restricted/FeatureServer/10", F),
+                     c("EcoshapeOverviewRangeMap", "EcoshapeRangeMap/FeatureServer/1", T))
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
-    DBdatasets <- sapply(DBdatasets, function(x) x[1] %in% datasetNames) %>%
-      {DBdatasets[which(.)]}
+    
+    if(type == "include"){
+      DBdatasets <- sapply(DBdatasets, function(x) x[1] %in% datasetNames) %>%
+        {DBdatasets[which(.)]}
+    }
+    
+    if(type == "exclude"){
+      DBdatasets <- sapply(DBdatasets, function(x) !x[1] %in% datasetNames) %>%
+        {DBdatasets[which(.)]}
+    }
   }
 
-  # Load password and CRS
-  load(environmentPath)
-    
   # Get KBA-EBAR token
   response <- httr::POST("https://gis.natureserve.ca/portal/sharing/rest/generateToken",
-                         body = list(username=DBusername, password=password, referer=":6443/arcgis/admin",f="json"),
+                         body = list(username=DBusername, password=DBpswd, referer=":6443/arcgis/admin", f="json"),
                          encode = "form")
   token <- content(response)$token
   
@@ -609,7 +622,7 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
   }
 }
 
-#### KBA-EBAR Database - Filter data ####
+#### KBA-EBAR Database - Filter data for one or several sites ####
 filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetNames, inputPrefix, outputPrefix){
   
   # Database parameters
