@@ -450,7 +450,8 @@ read_KBAEBARDatabase <- function(datasetNames, environmentPath){
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
-    DBdatasets <- DBdatasets[which(DBdatasets %in% datasetNames)]
+    DBdatasets <- sapply(DBdatasets, function(x) x[1] %in% datasetNames) %>%
+      {DBdatasets[which(.)]}
   }
 
   # Load password and CRS
@@ -619,7 +620,8 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
-    DBdatasets <- DBdatasets[which(DBdatasets %in% datasetNames)]
+    DBdatasets <- sapply(DBdatasets, function(x) x[1] %in% datasetNames) %>%
+      {DBdatasets[which(.)]}
   }
   
   # Set prefixes, if not specified manually
