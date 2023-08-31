@@ -812,11 +812,15 @@ update_KBAEBARDataset <- function(dataset, id){
   
   # Add primary key, where missing
         # Get maximum ID already assigned
-  maxID <- ifelse(exists(paste0(dataset, "_final")),
-                  max(get(paste0(dataset, "_final"))[[id]]),
-                  ifelse(nrow(DBDataset) > 0,
-                         max(DBDataset[[id]]),
-                         0))
+  maxID_final <- ifelse(exists(paste0(dataset, "_final")),
+                        max(get(paste0(dataset, "_final"))[[id]]),
+                        0)
+  
+  maxID_DB <- ifelse(nrow(DBDataset) > 0,
+                     max(DBDataset[[id]]),
+                     0)
+  
+  maxID <- max(maxID_final, maxID_DB)
   
         # Assign new IDs
   finalDataset <- newDataset %>%
