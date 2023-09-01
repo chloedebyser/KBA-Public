@@ -308,8 +308,10 @@ read_KBACanadaProposalForm <- function(formPath, final){
   
         # Add SpeciesIDs, where applicable
   threats %<>%
-    left_join(., DB_BIOTICS_ELEMENT_NATIONAL[which(!is.na(DB_BIOTICS_ELEMENT_NATIONAL$national_engl_name)), c("speciesid", "national_engl_name")], by=c("Specific biodiversity element" = "national_engl_name")) %>%
-    relocate(., speciesid, .after = 'Specific biodiversity element')
+    left_join(., species[,c("Common name", "NatureServe Element Code")], by=c("Specific biodiversity element"="Common name")) %>%
+    left_join(., DB_BIOTICS_ELEMENT_NATIONAL[which(!is.na(DB_BIOTICS_ELEMENT_NATIONAL$element_code)), c("element_code", "speciesid")], by=c("NatureServe Element Code" = "element_code")) %>%
+    relocate(., speciesid, .after = 'Specific biodiversity element') %>%
+    select(-`NatureServe Element Code`)
   
         # Add EcosystemIDs, where applicable
   threats %<>%
