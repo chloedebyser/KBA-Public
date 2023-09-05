@@ -423,6 +423,1102 @@ read_KBACanadaProposalForm <- function(formPath, final){
   PF_resultsSpecies <<- resultsSpecies
 }
 
+#### KBA Canada Proposal Form - Convert to Global Multi-Site Form ####
+convert_toGlobalMultiSiteForm <- function(inputPath, templatePath){
+  
+  # Load Multi-Site Global Proposal Form
+  suppressWarnings(multiSiteForm_wb <- loadWorkbook(templatePath))
+  
+  # Load KBA Canada Proposal Form
+  KBACanada <- loadWorkbook(inputPath)
+  
+  # Load HOME of KBA Canada Proposal Form
+  home <- read.xlsx(KBACanada, sheet="HOME")
+  
+  # Get form version
+  KBACanadaForm_version <- home[1,1]
+  
+  if(KBACanadaForm_version %in% c("Version 1.0", "Version 1.1")){
+    
+    # Load rest of KBA Canada Proposal Form
+    # 1. PROPOSER
+    proposer1 <- read.xlsx(KBACanada, sheet="1. PROPOSER") %>%
+      .[,2:3] %>%
+      rename(Field = X2, Entry = X3)
+    
+    # 2. SITE
+    # General
+    site2 <- read.xlsx(KBACanada, sheet="2. SITE") %>%
+      .[,2:4] %>%
+      rename(Field = X2)
+    
+    # Habitats
+    habitats <- site2 %>%
+      .[which(.$Field == 'Forest'):which(.$Field == 'Unknown'),] %>%
+      select(-FRENCH) %>%
+      filter(!is.na(GENERAL))
+    
+    # 3. SPECIES
+    # General
+    species3 <- read.xlsx(KBACanada, sheet="3. SPECIES")
+    colnames(species3) <- species3[1,]
+    species3 <- species3[!(row.names(species3) %in% 1), ]
+    species3 %<>% drop_na(`Common name`)
+    
+    # Species assessed nationally
+    speciesN <- species3 %>%
+      filter(`KBA level` == "National") %>%
+      pull(`NatureServe Element Code`)
+    
+    # Species assessed globally
+    speciesG <- species3 %>%
+      filter(`KBA level` == "Global") %>%
+      pull(`NatureServe Element Code`)
+    
+    # Species assessed national not globally
+    # Format dataset
+    speciesNnotG <- speciesN[which(!speciesN %in% speciesG)]
+    speciesNnotG <- species3[which(species3$`NatureServe Element Code` == speciesNnotG), ] %>%
+      mutate(Trigger = ifelse(is.na(`Criteria met`), "No", "Yes")) %>%
+      select(`Common name`, `Scientific name`, Trigger) %>%
+      distinct() %>%
+      group_by(`Common name`, `Scientific name`) %>%
+      arrange(desc(Trigger)) %>%
+      filter(row_number()==1) %>%
+      ungroup() %>%
+      mutate(Text = paste0(`Common name`, " (", `Scientific name`, ")"))
+    
+    # Create text
+    speciesNnotG_triggers <- speciesNnotG %>%
+      filter(Trigger == "Yes") %>%
+      pull(Text) %>%
+      paste(., collapse="; ")
+    speciesNnotG_triggers <- ifelse(!speciesNnotG_triggers=="",
+                                    paste0("Taxa that meet national KBA criteria in Canada: ", speciesNnotG_triggers, "."),
+                                    "")
+    
+    speciesNnotG_notTriggers <- speciesNnotG %>%
+      filter(Trigger == "No") %>%
+      pull(Text) %>%
+      paste(., collapse="; ")
+    speciesNnotG_notTriggers <- ifelse(!speciesNnotG_notTriggers=="",
+                                       paste("Taxa assessed against national KBA criteria in Canada, but that did not meet criteria:", speciesNnotG_notTriggers),
+                                       "")
+    
+    speciesNnotG_text <- paste(speciesNnotG_triggers, speciesNnotG_notTriggers) %>% trimws()
+    
+    # Only retain global triggers for further processing
+    species3 %<>%
+      filter(`KBA level` == "Global")
+    
+    if(nrow(species3) > 0){
+      species3$SpeciesIndex <- sapply(1:nrow(species3), function(x) paste0("spp", x))
+    }
+    
+    species3 <<- species3
+    
+    # 4. ECOSYSTEMS & C
+    # General
+    ecosystemsAndC4 <- read.xlsx(KBACanada, sheet="4. ECOSYSTEMS & C", skipEmptyRows = F)
+    
+    # Separate ecosystems and ecoregions
+    ecosystems4 <- ecosystemsAndC4
+    rowStart <- which(ecosystems4$X1 == "Name of ecosystem type") + 1
+    rowEnd <- which(ecosystems4$X1 == "ECOLOGICAL INTEGRITY - Criterion C") - 1
+    colnames(ecosystems4) <- ecosystems4[3,]
+    ecosystems4 <- ecosystems4[rowStart:rowEnd, ] %>%
+      drop_na(`Name of ecosystem type`) %>%
+      .[,which(!is.na(colnames(.)))]
+    
+    ecoregions4 <- ecosystemsAndC4
+    rowStart <- which(ecoregions4$X1 == "Name of ecoregion") + 1
+    rowEnd <- nrow(ecoregions4)
+    colnames(ecoregions4) <- ecoregions4[(rowStart-1),]
+    ecoregions4 <- ecoregions4[rowStart:rowEnd, ] %>%
+      drop_na(`Name of ecoregion`) %>%
+      .[,which(!is.na(colnames(.)))]
+    
+    # Only retain global triggers
+    ecosystems4 %<>%
+      filter(`KBA level` == "Global")
+    
+    if(nrow(ecosystems4) > 0){
+      ecosystems4$EcosystemIndex <- sapply(1:nrow(ecosystems4), function(x) paste0("ecosys", x))
+    }
+    
+    ecoregions4 %<>%
+      filter(`Assessment level` == "Global")
+    
+    if(nrow(ecoregions4) > 0){
+      ecoregions4$EcoregionIndex <- sapply(1:nrow(ecoregions4), function(x) paste0("ecoreg", x))
+    }
+    
+    # 5. THREATS
+    # General
+    threats5 <- read.xlsx(KBACanada, sheet="5. THREATS") %>% rename(Notes=X9)
+    colnames(threats5)[1:8] <- threats5[3,1:8]
+    threats5 <- threats5[!(row.names(threats5) %in% c(1,2,3)), ]
+    
+    # Only retain global triggers
+    threats5 %<>%
+      filter((Category == "Entire site") | (`Specific biodiversity element` %in% species3$`Common name`) | (`Specific biodiversity element` %in% ecosystems4$`Name of ecosystem type`))
+    
+    # 6. REVIEW
+    review6 <- read.xlsx(KBACanada, sheet="6. REVIEW")
+    
+    # Technical Review
+    # Assign
+    technicalReview <- review6
+    
+    # Get first and last row
+    firstRow <- which(technicalReview$`INSTRUCTIONS:` == "1")+2
+    lastRow <- which(technicalReview$`INSTRUCTIONS:` == "2")-1
+    
+    # Create dataframe
+    colnames(technicalReview) <- technicalReview[firstRow-1,]
+    technicalReview <- technicalReview[firstRow:lastRow, which(!is.na(colnames(technicalReview)))]
+    
+    # Create text
+    technicalReview_text <- ""
+    for(i in 1:nrow(technicalReview)){
+      inParentheses <- c(technicalReview$Affiliation[i], technicalReview$Email[i]) %>% .[which(!is.na(.))]
+      technicalReview_text <- paste0(technicalReview_text, paste0(technicalReview$Name[i], ifelse(length(inParentheses)>0, paste0(" (", paste0(inParentheses, collapse=", "), ")"), ""), ifelse(!is.na(technicalReview$`Description of role`[i]), paste0(": ", technicalReview$`Description of role`[i]), "")), sep="\n")
+    }
+    
+    # General Review
+    # Assign
+    generalReview <- review6
+    
+    # Reviewers that participated
+    # Get first and last row
+    firstRow <- which(generalReview$`INSTRUCTIONS:` == "2")+2
+    lastRow <- which(generalReview$`INSTRUCTIONS:` == "3")-1
+    
+    if(firstRow <= lastRow){
+      # Create dataframe
+      generalReview_participated <- generalReview
+      colnames(generalReview_participated) <- generalReview_participated[firstRow-1,]
+      generalReview_participated <- generalReview_participated[firstRow:lastRow, which(!is.na(colnames(generalReview_participated)))]
+      
+      # Create text
+      generalReview_text <- ""
+      for(i in 1:nrow(generalReview_participated)){
+        inParentheses <- c(generalReview_participated$Affiliation[i], generalReview_participated$Email[i]) %>% .[which(!is.na(.))]
+        generalReview_text <- paste0(ifelse(!is.na(generalReview_participated$Name[i]),generalReview_participated$Name[i],""), ifelse(length(inParentheses)>0, paste0(" (", paste0(inParentheses, collapse=", "), ")"), "")) %>%
+          trimws() %>%
+          ifelse(substr(., start=1, stop=1) == "(", substr(., start=2, stop=nchar(.)-1), .) %>%
+          paste0(generalReview_text, ., sep="\n")
+      }
+      
+    }else{
+      generalReview_text <- ""
+    }
+    
+    # Reviewers that did not participate
+    noResponse <- generalReview %>% filter(`INSTRUCTIONS:` == "3") %>% pull(X3)
+    
+    if(!is.na(nchar(noResponse))){
+      generalReview_text %<>% paste0(., "\n\n", noResponse)
+    }
+    
+    # 7. CITATIONS
+    citations7 <- read.xlsx(KBACanada, sheet="7. CITATIONS")
+    colnames(citations7) <- citations7[2,]
+    citations7 %<>%
+      .[3:nrow(.),which(!colnames(.) == " ")] %>%
+      drop_na(`Short Citation`) %>%
+      arrange(`Short Citation`) %>%
+      mutate(`Short Citation` = trimws(`Short Citation`)) %>%
+      mutate(`Long Citation` = gsub("<i>", "", `Long Citation`)) %>%
+      mutate(`Long Citation` = gsub("</i>", "", `Long Citation`))
+    
+    # checkboxes
+    checkboxes <- read.xlsx(KBACanada, sheet="checkboxes")
+    
+    # Global criteria assessed
+    colStart <- which(colnames(checkboxes)=="2..Global.criteria.assessed")
+    colEnd <- colStart+1
+    
+    checkboxes_GCriteria <- checkboxes[, colStart:colEnd]
+    colnames(checkboxes_GCriteria) <- checkboxes_GCriteria[1,]
+    checkboxes_GCriteria %<>%
+      .[2:nrow(.),] %>%
+      drop_na(Criterion)
+    
+    # Conservation Actions
+    colStart <- which(colnames(checkboxes) == "2..Conservation.actions")
+    colEnd <- colStart+2
+    
+    checkboxes_Actions <- checkboxes[, colStart:colEnd]
+    colnames(checkboxes_Actions) <- checkboxes_Actions[1,]
+    checkboxes_Actions %<>%
+      .[2:nrow(.),] %>%
+      drop_na(Action)
+    
+    actionsOngoing <- checkboxes_Actions %>% filter(Ongoing == "TRUE") %>% pull(Action)
+    actionsNeeded <- checkboxes_Actions %>% filter(Needed == "TRUE") %>% pull(Action)
+    
+    nOngoing <- length(actionsOngoing)
+    
+    # results_species
+    # General
+    results_species <- read.xlsx(KBACanada, sheet="results_species")
+    colnames(results_species) <- results_species[1,]
+    results_species <- results_species[!(row.names(results_species) %in% c(1, 2)), 1:14]
+    results_species %<>% drop_na(`Common name`)
+    
+    # Only retain global triggers
+    results_species %<>%
+      filter(`KBA level` == "Global")
+    
+    if(nrow(results_species) > 0){
+      results_species$SpeciesIndex <- sapply(1:nrow(results_species), function(x) paste0("spp", x))
+    }
+    
+    # Get national name
+    nationalName <<- site2 %>% filter(Field == "National name") %>% pull(GENERAL)
+    
+    # Get international name
+    internationalName <<- site2 %>% filter(Field == "International name") %>% pull(GENERAL)
+    
+    # Get proposer name
+    proposerName <<- "Ciara Raudsepp-Hearne"
+    
+    # If global criteria are met, then populate the global multi-site form
+    if(grepl("g", home[13,4])){
+      
+      # 1. Proposer
+      # Name
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x=proposerName, xy=c(2,3))
+      
+      # Address
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="Suite 204, 344 Bloor Street West, Toronto, Ontario, M5S 3A7", xy=c(2,4))
+      
+      # Country of residence
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="Canada", xy=c(2,5))
+      
+      # Email
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="craudsepp@wcs.org", xy=c(2,6))
+      
+      # Email (please re-enter)
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="craudsepp@wcs.org", xy=c(2,7))
+      
+      # Organisation
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="Wildlife Conservation Society Canada", xy=c(2,8))
+      
+      # Names and affiliations of any co-proposers for this KBA nomination
+      # Get named co-proposers
+      coproposers <- proposer1 %>% filter(Field == "Names and affiliations") %>% pull(Entry)
+      
+      # If the original proposer listed wasn't Ciara, add them to the co-proposer list
+      if(!grepl("Ciara", proposer1 %>% filter(Field == "Name") %>% pull(Entry), fixed=T)){
+        coproposers <- paste0(proposer1 %>% filter(Field == "Name") %>% pull(Entry),
+                              " (",
+                              proposer1 %>% filter(Field == "Organization") %>% pull(Entry),
+                              ifelse(!is.na(coproposers),
+                                     paste0("); ", coproposers),
+                                     ")"))
+      }
+      
+      # Save
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x=coproposers, xy=c(2,9))
+      
+      # Do you represent a KBA Partner organisation? Leave blank if not
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="WCS", xy=c(2,12))
+      
+      # Do you have other affiliations with a KBA Partner organisation - if so which (leave blank otherwise)?
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="", xy=c(2,13))
+      
+      # What is your main country of interest?
+      mainCountry <- "Canada"
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x=mainCountry, xy=c(2,14))
+      
+      # Are you a member of this country's KBA National Coordination Group?
+      NCG <- "Canada"
+      if(!is.na(NCG) & (NCG == mainCountry)){
+        writeData(multiSiteForm_wb, sheet = "1. Proposer", x="Yes", xy=c(2,15))
+      }else{
+        writeData(multiSiteForm_wb, sheet = "1. Proposer", x="No", xy=c(2,15))
+      }
+      
+      # Do you have a second country of interest? (optional)
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="", xy=c(2,16))
+      
+      # Are you, or one of the co-proposers, a member of an IUCN Specialist Group? (optional)
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="", xy=c(2,19))
+      
+      # Name of Group
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="", xy=c(4,19))
+      
+      # Have you or one of your co-proposers, identified or proposed one or more KBAs before? (optional)
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="Yes", xy=c(2,20))
+      
+      # Please give further details
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x="The KBA Canada Secretariat, hosted by Wildlife Conservation Society Canada, Birds Canada, and NatureServe Canada, is coordinating the work of KBA identification in Canada.", xy=c(5,20))
+      
+      # Date of proposal or nomination (dd/mm/yyyy):
+      date <- site2 %>%
+        filter(Field == "Date (dd/mm/yyyy)") %>%
+        pull(GENERAL)
+      
+      if(!is.na(suppressWarnings(as.integer(date)))){
+        date %<>%
+          as.integer() %>%
+          as.Date(., origin = "1899-12-30")
+      }else{
+        date %<>%
+          as.Date(., format = "%d/%m/%Y")
+      }
+      
+      year <<- date %>%
+        format(., format="%Y") %>%
+        as.integer()
+      
+      date %<>% format(., "%d/%m/%Y")
+      
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x=date, xy=c(2,24))
+      
+      # Is this a proposal or a nomination?:
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x=site2 %>% filter(Field == "Type") %>% pull(GENERAL), xy=c(2,25))
+      
+      # I agree to the data in this form being stored in the WDKBA and used for the purposes of KBA identification and conservation
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x=proposer1 %>% filter(Field == "I agree to the data in this form being stored in the World Database of KBAs and used for the purposes of KBA identification and conservation.") %>% pull(Entry), xy=c(2,30))
+      
+      # If no, please give further details
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x=proposer1 %>% filter(Field == "If no, please provide further details:") %>% pull(Entry), xy=c(5,30))
+      
+      # Reviewers
+      writeData(multiSiteForm_wb, sheet = "1. Proposer", x=site2 %>% filter(Field == "Names and emails") %>% pull(GENERAL), xy=c(1,38))
+      
+      # 2. Site data
+      # Site record number in WDKBA (sitrecid)
+      WDKBAnumber <- site2 %>% filter(Field == "WDKBA number") %>% pull(GENERAL)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=WDKBAnumber, xy=c(1,5))
+      
+      # Site code if new site
+      CASiteCode <- site2 %>% filter(Field == "Canadian Site Code") %>% pull(GENERAL)
+      CASiteCode <- ifelse(is.na(CASiteCode), "CA001", CASiteCode)
+      
+      if(is.na(WDKBAnumber)){
+        writeData(multiSiteForm_wb, sheet = "2. Site data", x=CASiteCode, xy=c(2,5))
+      }
+      
+      # Site name (english)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=internationalName, xy=c(3,5))
+      
+      # Site name (national)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "National name") %>% pull(GENERAL), xy=c(4,5))
+      
+      # Country
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Country") %>% pull(GENERAL), xy=c(5,5))
+      
+      # Purpose of proposal for the site
+      purpose <- site2 %>% filter(Field == "Purpose") %>% pull(GENERAL) %>% substr(., start=4, stop=nchar(.))
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=purpose, xy=c(6,5))
+      
+      # A1
+      value <- checkboxes_GCriteria %>%
+        filter(Criterion == "A1") %>%
+        pull(Value)
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(value=="TRUE", "Yes", "No"), xy=c(7,5))
+      
+      # A2
+      value <- checkboxes_GCriteria %>%
+        filter(Criterion == "A2") %>%
+        pull(Value)
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(value=="TRUE", "Yes", "No"), xy=c(8,5))
+      
+      # B1
+      value <- checkboxes_GCriteria %>%
+        filter(Criterion == "B1") %>%
+        pull(Value)
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(value=="TRUE", "Yes", "No"), xy=c(9,5))
+      
+      # B2
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="No", xy=c(10,5))
+      
+      # B3
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="No", xy=c(11,5))
+      
+      # B4
+      value <- checkboxes_GCriteria %>%
+        filter(Criterion == "B4") %>%
+        pull(Value)
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(value=="TRUE", "Yes", "No"), xy=c(12,5))
+      
+      # C
+      value <- checkboxes_GCriteria %>%
+        filter(Criterion == "C") %>%
+        pull(Value)
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(value=="TRUE", "Yes", "No"), xy=c(13,5))
+      
+      # D1
+      value <- checkboxes_GCriteria %>%
+        filter(Criterion == "D1") %>%
+        pull(Value)
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(value=="TRUE", "Yes", "No"), xy=c(14,5))
+      
+      # D2
+      value <- checkboxes_GCriteria %>%
+        filter(Criterion == "D2") %>%
+        pull(Value)
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(value=="TRUE", "Yes", "No"), xy=c(15,5))
+      
+      # D3
+      value <- checkboxes_GCriteria %>%
+        filter(Criterion == "D3") %>%
+        pull(Value)
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(value=="TRUE", "Yes", "No"), xy=c(16,5))
+      
+      # Names of existing KBAs intersected that will be replaced by this site.
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Existing KBAs intersected") %>% pull(GENERAL), xy=c(17,5))
+      
+      # Why existing qualifying element needs to be changed
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Reassessment rationale") %>% pull(GENERAL), xy=c(18,5))
+      
+      # State/province
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Province or Territory") %>% pull(GENERAL), xy=c(19,5))
+      
+      # Site area (sq km)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Site area (km2)") %>% pull(GENERAL), xy=c(20,5))
+      
+      # Latitude of mid point (dd.dddd)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Latitude (dd.dddd)") %>% pull(GENERAL), xy=c(21,5))
+      
+      # Longitude of mid point (dd.dddd)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Longitude (dd.dddd)") %>% pull(GENERAL), xy=c(22,5))
+      
+      # Lowest altitude (m asl) or deepest Bathymetry level (m)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Minimum elevation (m)") %>% pull(GENERAL), xy=c(23,5))
+      
+      # Highest altitude (m asl) or shallowest Bathymetry level (m)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Maximum elevation (m)") %>% pull(GENERAL), xy=c(24,5))
+      
+      # Altitude or Bathymetry (m)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Altitude or Bathymetry?") %>% pull(GENERAL), xy=c(25,5))
+      
+      # System (largest)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Largest") %>% pull(GENERAL), xy=c(26,5))
+      
+      # System (2nd largest)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "2nd largest") %>% pull(GENERAL), xy=c(27,5))
+      
+      # System (3rd largest)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "3rd largest") %>% pull(GENERAL), xy=c(28,5))
+      
+      # System (smallest)
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Smallest") %>% pull(GENERAL), xy=c(29,5))
+      
+      # Rationale for site nomination -text that will be on fact sheets
+      nominationRationale <- site2 %>% filter(Field == "Rationale for nomination") %>% pull(GENERAL)
+      nominationRationale %<>% gsub("<i>", "", .)
+      nominationRationale %<>% gsub("</i>", "", .)
+      
+      for(citationIndex in 1:nrow(citations7)){
+        nominationRationale %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+      }
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=nominationRationale, xy=c(30,5))
+      
+      # Site description - text will be on fact sheets
+      siteDescription <- site2 %>% filter(Field == "Site description") %>% pull(GENERAL)
+      siteDescription %<>% gsub("<i>", "", .)
+      siteDescription %<>% gsub("</i>", "", .)
+      
+      for(citationIndex in 1:nrow(citations7)){
+        siteDescription %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+      }
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=siteDescription, xy=c(31,5))
+      
+      # How is the site managed or potentially manageable?
+      siteManagement <- site2 %>% filter(Field == "Site management") %>% pull(GENERAL)
+      
+      for(citationIndex in 1:nrow(citations7)){
+        siteManagement %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+      }
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=siteManagement, xy=c(32,5))
+      
+      # Delineation rationale - text will be on fact sheet
+      delineationRationale <- site2 %>% filter(Field == "Delineation rationale") %>% pull(GENERAL)
+      delineationRationale %<>% gsub("<i>", "", .)
+      delineationRationale %<>% gsub("</i>", "", .)
+      
+      for(citationIndex in 1:nrow(citations7)){
+        delineationRationale %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+      }
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=delineationRationale, xy=c(33,5))
+      
+      # Are you attaching a boundary file with this application?
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Boundary file provided?") %>% pull(GENERAL), xy=c(34,5))
+      
+      # How much of the site is covered by protected areas?
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Percent protected") %>% pull(GENERAL), xy=c(35,5))
+      
+      # If covered by protected area which is it?
+      protectedAreaNames <- site2 %>% filter(Field == "Protected area (PA) names") %>% pull(GENERAL)
+      
+      for(citationIndex in 1:nrow(citations7)){
+        protectedAreaNames %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+      }
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=protectedAreaNames, xy=c(36,5))
+      
+      # Relationship with protected area boundaries
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Relationship to PA boundaries") %>% pull(GENERAL), xy=c(37,5))
+      
+      # Additional biodiversity values at site
+      additionalBiodiversity <- site2 %>% filter(Field == "Additional biodiversity") %>% pull(GENERAL)
+      additionalBiodiversity %<>% gsub("<i>", "", .)
+      additionalBiodiversity %<>% gsub("</i>", "", .)
+      
+      for(citationIndex in 1:nrow(citations7)){
+        additionalBiodiversity %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+      }
+      
+      additionalBiodiversity %<>% paste(., speciesNnotG_text) %>% trimws()
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=additionalBiodiversity, xy=c(38,5))
+      
+      # Does the site includes land/water/resources belonging to indigenous people or subject to customary use rights. If yes name the indigenous group.
+      customaryJurisdiction <- site2 %>% filter(Field == "Customary jurisdiction") %>% pull(GENERAL)
+      
+      for(citationIndex in 1:nrow(citations7)){
+        customaryJurisdiction %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+      }
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=customaryJurisdiction, xy=c(39,5))
+      
+      # Land-use regimes at site
+      landUseRegimes <- site2 %>% filter(Field == "Land-use regimes") %>% pull(GENERAL)
+      
+      for(citationIndex in 1:nrow(citations7)){
+        landUseRegimes %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+      }
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=landUseRegimes, xy=c(40,5))
+      
+      # Does the site overlap an OECM. If yes put the name of the OECM here otherwise leave blank.
+      OECMAtSite <- site2 %>% filter(Field == "OECM(s) at site") %>% pull(GENERAL)
+      
+      for(citationIndex in 1:nrow(citations7)){
+        OECMAtSite %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+      }
+      
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=OECMAtSite, xy=c(41,5))
+      
+      # Academic, scientific and expert consultation
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=technicalReview_text, xy=c(43,5))
+      
+      # Consultation with other stakeholders (government, NGOs, local people etc):
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=generalReview_text, xy=c(44,5))
+      
+      # Potential Reviewers for the site
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x=site2 %>% filter(Field == "Names and emails") %>% pull(GENERAL), xy=c(45,5))
+      
+      # 3. Biodiversity elements data
+      elementIndices <- c(species3$SpeciesIndex, ecosystems4$EcosystemIndex, ecoregions4$EcoregionIndex)
+      
+      if(length(elementIndices) > 0){
+        line <- 5
+        
+        for(index in elementIndices){
+          
+          # Get element information
+          elementType <- ifelse(grepl("spp", index),
+                                "species",
+                                ifelse(grepl("ecosys", index),
+                                       "ecosystem",
+                                       "ecoregion"))
+          
+          elementNumber <- ifelse(elementType == "species",
+                                  as.integer(substr(index, start=4, stop=nchar(index))),
+                                  as.integer(substr(index, start=7, stop=nchar(index))))
+          
+          # Site record number in WDKBA (sitrecid)
+          writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=WDKBAnumber, xy=c(1,line))
+          
+          # Site code if new site
+          if(is.na(WDKBAnumber)){
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=CASiteCode, xy=c(2,line))
+          }
+          
+          if(elementType == "species"){
+            
+            # Species ID Number in SIS (sis_id)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Red List SIS number`), xy=c(4,line))
+            
+            # Species ID Number in WDKBA (spcrecid)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`WDKBA number`), xy=c(5,line))
+            
+            # Your species ID code
+            elementCode <- species3 %>% filter(SpeciesIndex == index) %>% pull(`NatureServe Element Code`)
+            if(!is.na(elementCode)){
+              writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=elementCode, xy=c(6,line))
+            }else{
+              stop("Missing Element Code")
+            }
+            
+            # Species (common name)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Common name`), xy=c(7,line))
+            
+            # Scientific binomial name
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Scientific name`), xy=c(8,line))
+            
+            # Taxonomic group
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Taxonomic group`), xy=c(9,line))
+            
+            # Red List category
+            # Get information
+            statusAssessmentAgency <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Status assessment agency`)
+            status <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Status`)
+            
+            # Is species endemic to Canada?
+            endemism <- species %>% filter(ELEMENT_CODE == elementCode) %>% pull(Endemism)
+            
+            # Level of status
+            statusLevel <- ifelse((statusAssessmentAgency == "IUCN") | ((statusAssessmentAgency == "NatureServe") & (status %in% gRanks)) | (endemism == "Y"),
+                                  "Global",
+                                  "National")
+            
+            # Convert to Red List equivalent category
+            if(!is.na(statusLevel)){
+              
+              if(statusLevel == "Global"){
+                
+                if(statusAssessmentAgency == "NatureServe"){
+                  
+                  status <- ifelse(status %in% c("GH", "TH", "NH"),
+                                   "Critically Endangered (Possibly Extinct)",
+                                   ifelse(status %in% c("G1", "T1", "N1"),
+                                          "Endangered (EN)",
+                                          ifelse(status %in% c("G2", "T2", "N2"),
+                                                 "Vulnerable (VU)",
+                                                 "")))
+                  
+                }else if(statusAssessmentAgency == "COSEWIC"){
+                  
+                  status <- ifelse(status == "E",
+                                   "Endangered (EN)",
+                                   ifelse(status == "T",
+                                          "Vulnerable (VU)",
+                                          ""))
+                  
+                }
+              }
+              
+              # Write the information
+              writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=status, xy=c(10,line))
+            }
+            
+            # IUCN Red list criteria
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Assessment criteria`), xy=c(11,line))
+            
+            # Equivalent system if not IUCN Red List.
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ifelse((statusAssessmentAgency == "IUCN") | (status == ""), "", statusAssessmentAgency), xy=c(12,line))
+            
+            # Assess against A1c/A1d?
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=results_species %>% filter(SpeciesIndex == index) %>% pull(`Eligible for A1c/d`), xy=c(13,line))
+            
+            # Range-restricted?
+            
+            # Range restriction determined by
+            
+            # Eco/bioregion-restricted? B3a, B3b, No
+            
+            # Eco/bioregion map used
+            
+            # Name of eco/bioregion
+            
+            # Is species on KBA list of eco/bioregion restricted species?
+            
+            # Number of species required to meet B3a/B3b thresholds to trigger KBA status.
+            
+            # Assessment parameter applied
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Assessment parameter`), xy=c(21,line))
+            
+            # Min (global)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Min reference estimate`), xy=c(22,line))
+            
+            # Best (global)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Best reference estimate`), xy=c(23,line))
+            
+            # Max (global)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Max reference estimate`), xy=c(24,line))
+            
+            # Source global data
+            sourceGlobalEstimate <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Sources of reference estimates`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              sourceGlobalEstimate %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=sourceGlobalEstimate, xy=c(25,line))
+            
+            # Notes on global data
+            explanationGlobalEstimate <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Explanation of reference estimates`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              explanationGlobalEstimate %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=explanationGlobalEstimate, xy=c(26,line))
+            
+            # Evidence the species is present at the site
+            descriptionOfEvidence <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Description of evidence`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              descriptionOfEvidence %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=descriptionOfEvidence, xy=c(27,line))
+            
+            # Most recent year for which there is evidence species is present
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Evidence Year`), xy=c(28,line))
+            
+            # Min. number of reproductive units (RU) at site
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Reproductive Units (RU)`), xy=c(29,line))
+            
+            # What are 10 RUs comprised of
+            composition10RUs <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Composition of 10 RUs`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              composition10RUs %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=composition10RUs, xy=c(30,line))
+            
+            # Source of reproductive unit data (including year of data)
+            RUSource <- species3 %>% filter(SpeciesIndex == index) %>% pull(`RU Source`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              RUSource %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=RUSource, xy=c(31,line))
+            
+            # Min (site)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Min site estimate`), xy=c(32,line))
+            
+            # Best (site)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Best site estimate`), xy=c(33,line))
+            
+            # Max (site)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Max site estimate`), xy=c(34,line))
+            
+            # Derivation of estimate
+            derivationOfEstimate <- species3 %>%
+              filter(SpeciesIndex == index) %>%
+              pull(`Derivation of best estimate`) %>%
+              ifelse(. == "Other (please add further details in column AA)", "Other (please add further details in Notes (column AU)", .)
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=derivationOfEstimate, xy=c(35,line))
+            
+            # Source of data
+            sourceSiteEstimate <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Sources of site estimates`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              sourceSiteEstimate %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=sourceSiteEstimate, xy=c(36,line))
+            
+            # Year of site population estimates
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Year of site estimate`), xy=c(37,line))
+            
+            # Are you applying A1,B1,B2,B3 or D1a or D2 or D3
+            KBAcriterion <- species3 %>% filter(SpeciesIndex == index) %>% pull(`KBA criterion`)
+            
+            value <- ifelse(KBAcriterion == "A1 or B1",
+                            "Regularly held  in one or more life cycle stages (A1, B1, B2 or B3)",
+                            ifelse(KBAcriterion == "D1",
+                                   "Aggregation predictably held  in one or more life cycle stages (D1a)",
+                                   ifelse(KBAcriterion == "D2",
+                                          "Supported by site as a refugium (D2)",
+                                          "Produced by site as a recruitment source (D3)")))
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=value, xy=c(38,line))
+            
+            # Seasonal distribution applied to
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=species3 %>% filter(SpeciesIndex == index) %>% pull(`Seasonal Distribution`), xy=c(39,line))
+            
+            # Reason for selection in column AL if not left as "Regularly held ..."
+            oneOf10LargestAgg <- species3 %>%
+              filter(SpeciesIndex == index) %>%
+              pull(`One of 10 largest aggregations?`)
+            
+            oneOf10LargestAgg <- ifelse(oneOf10LargestAgg == "Globally", "Yes", "No")
+            
+            if(oneOf10LargestAgg == "No"){
+              criterionDRationale <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Criterion D rationale`)
+              
+              for(citationIndex in 1:nrow(citations7)){
+                criterionDRationale %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+              }
+              
+              writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=criterionDRationale, xy=c(40,line))
+            }
+            
+            # Globally most important 5% of occupied habitat? (B3c)
+            
+            # Assessment parameter for globally most important 5% of occupied habitat
+            
+            # Source for being globally most impt. 5% of occupied habitat
+            
+            # One of 10 largest aggregations?
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=oneOf10LargestAgg, xy=c(44,line))
+            
+            # Justification that the species is aggregated
+            if(oneOf10LargestAgg == "Yes"){
+              criterionDRationale <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Criterion D rationale`)
+              
+              for(citationIndex in 1:nrow(citations7)){
+                criterionDRationale %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+              }
+              
+              writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=criterionDRationale, xy=c(45,line))
+            }
+            
+            # Source for being one of 10 largest aggregations
+            source10LargestAggregations <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Source for being one of 10 largest aggregations`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              source10LargestAggregations %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=source10LargestAggregations, xy=c(46,line))
+            
+            # Notes on site data for species
+            explanationSiteEstimate <- species3 %>% filter(SpeciesIndex == index) %>% pull(`Explanation of site estimates`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              explanationSiteEstimate %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=explanationSiteEstimate, xy=c(47,line))
+          }
+          
+          if(elementType == "ecosystem"){
+            
+            # Ecosystem code number
+            ecosystemCode <- ecosystems4 %>% filter(EcosystemIndex == index) %>% pull(`WDKBA number`)
+            ecosystemCode <- ifelse(is.na(ecosystemCode), index, ecosystemCode)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ecosystemCode, xy=c(48,line))
+            
+            # Name of ecosystem type
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ecosystems4 %>% filter(EcosystemIndex == index) %>% pull(`Name of ecosystem type`), xy=c(49,line))
+            
+            # Red List of Ecosystems category
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ecosystems4 %>% filter(EcosystemIndex == index) %>% pull(`Status in the IUCN Red List of Ecosystems`), xy=c(50,line))
+            
+            # Global extent
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ecosystems4 %>% filter(EcosystemIndex == index) %>% pull(`Reference extent (km2)`), xy=c(51,line))
+            
+            # Extent at site Min)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ecosystems4 %>% filter(EcosystemIndex == index) %>% pull(`Min site extent (km2)`), xy=c(52,line))
+            
+            # Extent at site (best estimate)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ecosystems4 %>% filter(EcosystemIndex == index) %>% pull(`Best site extent (km2)`), xy=c(53,line))
+            
+            # Extent at site (Max)
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ecosystems4 %>% filter(EcosystemIndex == index) %>% pull(`Max site extent (km2)`), xy=c(54,line))
+            
+            # Date of assessment
+            
+            # Source of ecosystem data
+            dataSource <- ecosystems4 %>% filter(EcosystemIndex == index) %>% pull(`Data source`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              dataSource %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=dataSource, xy=c(56,line))
+          }
+          
+          if(elementType == "ecoregion"){
+            
+            # Ecological integrity Ecoregion
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ecoregions4 %>% filter(EcoregionIndex == index) %>% pull(`Name of ecoregion`), xy=c(57,line))
+            
+            # Number of criterion C sites in ecoregion
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ecoregions4 %>% filter(EcoregionIndex == index) %>% pull(`Number of existing criterion C sites`), xy=c(58,line))
+            
+            # Ecological Integrity - Evidence for low human impact
+            evidenceLowHumanImpact <- ecoregions4 %>% filter(EcoregionIndex == index) %>% pull(`Evidence of low human impact`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              evidenceLowHumanImpact %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=evidenceLowHumanImpact, xy=c(59,line))
+            
+            # Ecological integrity - evidence for intact ecological communities
+            evidenceIntactEcologicalCommunities <- ecoregions4 %>% filter(EcoregionIndex == index) %>% pull(`Evidence of intact ecological communities`)
+            
+            for(citationIndex in 1:nrow(citations7)){
+              evidenceIntactEcologicalCommunities %<>% gsub(citations7$`Short Citation`[citationIndex], citations7$`Long Citation`[citationIndex], .)
+            }
+            
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=evidenceIntactEcologicalCommunities, xy=c(60,line))
+            
+            # Date of assessment
+          }
+          
+          # Go to next line
+          line <- line + 1
+        }
+      }else{
+        stop(paste0(nationalName, " should be a global KBA, but no trigger elements were found that meet global criteria."))
+      }
+      
+      # 4. Conservation Actions
+      for(actionType in c("Ongoing", "Needed")){
+        
+        actions <- get(paste0("actions", actionType))
+        line <- 3
+        
+        if(length(actions) > 0){
+          
+          for(action in actions){
+            
+            # Site record number in WDKBA (sitrecid)
+            writeData(multiSiteForm_wb, sheet = "4. Conservation Actions", x=WDKBAnumber, xy=c(1,line))
+            
+            # Site code if new site
+            writeData(multiSiteForm_wb, sheet = "4. Conservation Actions", x=CASiteCode, xy=c(2,line))
+            
+            #	Ongoing conservation Actions at site
+            if(actionType == "Ongoing"){
+              writeData(multiSiteForm_wb, sheet = "4. Conservation Actions", x=action, xy=c(4,line))
+            }
+            
+            # Conservation actions needed at site
+            if(actionType == "Needed"){
+              writeData(multiSiteForm_wb, sheet = "4. Conservation Actions", x=action, xy=c(5,line))
+            }
+            
+            # Go to next line
+            line <- line + 1
+          }
+        }
+      }
+      
+      # 5. Habitat types
+      line <- 3
+      
+      if(nrow(habitats) > 0){
+        
+        for(habitat in habitats$Field){
+          
+          # Site record number in WDKBA (sitrecid)
+          writeData(multiSiteForm_wb, sheet = "5. Habitat types", x=WDKBAnumber, xy=c(1,line))
+          
+          # Site code if new site
+          writeData(multiSiteForm_wb, sheet = "5. Habitat types", x=CASiteCode, xy=c(2,line))
+          
+          #	Major habitat types at site
+          writeData(multiSiteForm_wb, sheet = "5. Habitat types", x=habitat, xy=c(4,line))
+          
+          # Percentage cover of habitat at site
+          writeData(multiSiteForm_wb, sheet = "5. Habitat types", x=habitats %>% filter(Field == habitat) %>% pull(GENERAL), xy=c(5,line))
+          
+          # Go to next line
+          line <- line + 1
+        }
+      }
+      
+      # 6. Threats data
+      line <- 4
+      
+      if(nrow(threats5) > 0){
+        
+        for(index in 1:nrow(threats5)){
+          
+          # Site record number in WDKBA (sitrecid)
+          writeData(multiSiteForm_wb, sheet = "6. Threats data", x=WDKBAnumber, xy=c(1,line))
+          
+          # Site code if new site
+          writeData(multiSiteForm_wb, sheet = "6. Threats data", x=CASiteCode, xy=c(2,line))
+          
+          if(threats5$Category[index] == "Species"){
+            
+            #	Species ID Number in SIS (sis_id) - indicate a species here if the threat applies to a species otherwise leave blank for threats that apply to the site as a whole
+            writeData(multiSiteForm_wb, sheet = "6. Threats data", x=species3 %>% filter(`Common name` == threats5$`Specific biodiversity element`[index]) %>% pull(`Red List SIS number`) %>% .[1], xy=c(4,line))
+            
+            # Species ID Number in WDKBA (spcrecid)
+            writeData(multiSiteForm_wb, sheet = "6. Threats data", x=species3 %>% filter(`Common name` == threats5$`Specific biodiversity element`[index]) %>% pull(`WDKBA number`) %>% .[1], xy=c(5,line))
+            
+            # Your species ID code
+            elementCode <- species3 %>% filter(`Common name` == threats5$`Specific biodiversity element`[index]) %>% pull(`NatureServe Element Code`) %>% .[1]
+            if(!is.na(elementCode)){
+              writeData(multiSiteForm_wb, sheet = "6. Threats data", x=elementCode, xy=c(6,line))
+            }else{
+              stop("Missing Element Code")
+            }
+          }
+          
+          if(threats5$Category[index] == "Ecosystem"){
+            
+            # Ecosystem code
+            ecosystemCode <- readWorkbook(multiSiteForm_wb, sheet = "3. Biodiversity elements data", startRow = 4) %>%
+              select(c(Ecosystem.code.number, Name.of.ecosystem.type)) %>%
+              filter(Name.of.ecosystem.type == threats5$`Specific biodiversity element`[index]) %>%
+              pull(Ecosystem.code.number)
+            
+            writeData(multiSiteForm_wb, sheet = "6. Threats data", x=ecosystemCode, xy=c(8,line))
+          }
+          
+          # Level 1 threat
+          writeData(multiSiteForm_wb, sheet = "6. Threats data", x=threats5$`Level 1`[index], xy=c(10,line))
+          
+          # Level 2 threat
+          writeData(multiSiteForm_wb, sheet = "6. Threats data", x=threats5$`Level 2`[index], xy=c(11,line))
+          
+          # Level 3 threat
+          writeData(multiSiteForm_wb, sheet = "6. Threats data", x=threats5$`Level 3`[index], xy=c(12,line))
+          
+          # Timing
+          writeData(multiSiteForm_wb, sheet = "6. Threats data", x=threats5$Timing[index], xy=c(13,line))
+          
+          # Scope
+          writeData(multiSiteForm_wb, sheet = "6. Threats data", x=threats5$Scope[index], xy=c(14,line))
+          
+          # Severity
+          writeData(multiSiteForm_wb, sheet = "6. Threats data", x=threats5$Severity[index], xy=c(15,line))
+          
+          # Go to next line
+          line <- line + 1
+        }
+      }
+      
+      # Hide helper sheets
+      sheetVisibility(multiSiteForm_wb)[9:10] <- "hidden"
+      
+      # Return the Global Mutli-Site Form
+      return(multiSiteForm_wb)
+      
+    }else{
+      
+      # Error message
+      stop(paste0("No Global Criteria met for ", nationalName))
+    }
+  }else{
+    
+    # Error message
+    stop("KBA Canada Form version not supported")
+  }
+}
+
 #### KBA-EBAR Database - Load data ####
 read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account){
 
