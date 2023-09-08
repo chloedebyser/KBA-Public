@@ -307,8 +307,10 @@ read_KBACanadaProposalForm <- function(formPath, final){
   }
   
         # Add SpeciesIDs, where applicable
-  threats %<>%
-    left_join(., species[,c("Common name", "NatureServe Element Code")], by=c("Specific biodiversity element"="Common name")) %>%
+  threats <- species %>%
+    select(`Common name`, `NatureServe Element Code`) %>%
+    distinct() %>%
+    left_join(threats, ., by=c("Specific biodiversity element"="Common name")) %>%
     left_join(., DB_BIOTICS_ELEMENT_NATIONAL[which(!is.na(DB_BIOTICS_ELEMENT_NATIONAL$element_code)), c("element_code", "speciesid")], by=c("NatureServe Element Code" = "element_code")) %>%
     relocate(., speciesid, .after = 'Specific biodiversity element') %>%
     select(-`NatureServe Element Code`)
@@ -424,62 +426,28 @@ read_KBACanadaProposalForm <- function(formPath, final){
 }
 
 #### KBA Canada Proposal Form - Convert to Global Multi-Site Form ####
-convert_toGlobalMultiSiteForm <- function(inputPath, templatePath){
+convert_toGlobalMultiSiteForm <- function(templatePath){
   
-  # Load Multi-Site Global Proposal Form
-  suppressWarnings(multiSiteForm_wb <- loadWorkbook(templatePath))
+  # Load template for the Multi-Site Global Proposal Form
+  multiSiteForm_wb <- loadWorkbook(templatePath) %>%
+    suppressWarnings()
   
-  # Load KBA Canada Proposal Form
-  KBACanada <- loadWorkbook(inputPath)
-  
-  # Load HOME of KBA Canada Proposal Form
-  home <- read.xlsx(KBACanada, sheet="HOME")
-  
-  # Get form version
-  KBACanadaForm_version <- home[1,1]
-  
-  if(KBACanadaForm_version %in% c("Version 1.0", "Version 1.1")){
+  # Classify species by level  
+        # Species assessed nationally
+  speciesN <- PF_species %>%
+    filter(`KBA level` == "National") %>%
+    pull(`NatureServe Element Code`)
     
-    # Load rest of KBA Canada Proposal Form
-    # 1. PROPOSER
-    proposer1 <- read.xlsx(KBACanada, sheet="1. PROPOSER") %>%
-      .[,2:3] %>%
-      rename(Field = X2, Entry = X3)
+        # Species assessed globally
+  speciesG <- PF_species %>%
+    filter(`KBA level` == "Global") %>%
+    pull(`NatureServe Element Code`)
     
-    # 2. SITE
-    # General
-    site2 <- read.xlsx(KBACanada, sheet="2. SITE") %>%
-      .[,2:4] %>%
-      rename(Field = X2)
-    
-    # Habitats
-    habitats <- site2 %>%
-      .[which(.$Field == 'Forest'):which(.$Field == 'Unknown'),] %>%
-      select(-FRENCH) %>%
-      filter(!is.na(GENERAL))
-    
-    # 3. SPECIES
-    # General
-    species3 <- read.xlsx(KBACanada, sheet="3. SPECIES")
-    colnames(species3) <- species3[1,]
-    species3 <- species3[!(row.names(species3) %in% 1), ]
-    species3 %<>% drop_na(`Common name`)
-    
-    # Species assessed nationally
-    speciesN <- species3 %>%
-      filter(`KBA level` == "National") %>%
-      pull(`NatureServe Element Code`)
-    
-    # Species assessed globally
-    speciesG <- species3 %>%
-      filter(`KBA level` == "Global") %>%
-      pull(`NatureServe Element Code`)
-    
-    # Species assessed national not globally
-    # Format dataset
-    speciesNnotG <- speciesN[which(!speciesN %in% speciesG)]
-    speciesNnotG <- species3[which(species3$`NatureServe Element Code` == speciesNnotG), ] %>%
-      mutate(Trigger = ifelse(is.na(`Criteria met`), "No", "Yes")) %>%
+        # Species assessed nationally and not globally
+              # Format dataset
+  speciesNnotG <- speciesN[which(!speciesN %in% speciesG)]
+  speciesNnotG <- PF_species[which(PF_species$`NatureServe Element Code` == speciesNnotG), ] %>%
+    mutate(Trigger = ifelse(is.na(`Criteria met`), "No", "Yes")) %>%
       select(`Common name`, `Scientific name`, Trigger) %>%
       distinct() %>%
       group_by(`Common name`, `Scientific name`) %>%
@@ -487,8 +455,8 @@ convert_toGlobalMultiSiteForm <- function(inputPath, templatePath){
       filter(row_number()==1) %>%
       ungroup() %>%
       mutate(Text = paste0(`Common name`, " (", `Scientific name`, ")"))
-    
-    # Create text
+  
+              # Create text
     speciesNnotG_triggers <- speciesNnotG %>%
       filter(Trigger == "Yes") %>%
       pull(Text) %>%
@@ -508,14 +476,14 @@ convert_toGlobalMultiSiteForm <- function(inputPath, templatePath){
     speciesNnotG_text <- paste(speciesNnotG_triggers, speciesNnotG_notTriggers) %>% trimws()
     
     # Only retain global triggers for further processing
-    species3 %<>%
+    PF_species %<>%
       filter(`KBA level` == "Global")
     
-    if(nrow(species3) > 0){
-      species3$SpeciesIndex <- sapply(1:nrow(species3), function(x) paste0("spp", x))
+    if(nrow(PF_species) > 0){
+      PF_species$SpeciesIndex <- sapply(1:nrow(PF_species), function(x) paste0("spp", x))
     }
     
-    species3 <<- species3
+    PF_species <<- PF_species
     
     # 4. ECOSYSTEMS & C
     # General
@@ -1512,11 +1480,6 @@ convert_toGlobalMultiSiteForm <- function(inputPath, templatePath){
       # Error message
       stop(paste0("No Global Criteria met for ", nationalName))
     }
-  }else{
-    
-    # Error message
-    stop("KBA Canada Form version not supported")
-  }
 }
 
 #### KBA-EBAR Database - Load data ####
@@ -1896,10 +1859,39 @@ update_KBAEBARDataset <- function(dataset, id){
   # Get primary key
   if(nrow(newDataset) > 0){
     
-    newDataset %<>%
-      left_join(., oldDataset, by=cols[which(!cols == id)]) %>%
+    # Convert numeric fields to character, in order to ensure accurate join
+          # Old dataset
+    oldDataset_noNum <- oldDataset
+    
+    for(col in cols[which(!cols == id)]){
+      
+      if(oldDataset %>% pull(all_of(col)) %>% is.double(.)){
+        
+        oldDataset_noNum %<>%
+          mutate({{col}} := as.character(.[,col]))
+      }
+    }
+    
+          # New dataset
+    newDataset_noNum <- newDataset
+    
+    for(col in cols[which(!cols == id)]){
+      
+      if(newDataset %>% pull(all_of(col)) %>% is.double(.)){
+        
+        newDataset_noNum %<>%
+          mutate({{col}} := as.character(.[,col]))
+      }
+    }
+    
+    # Get primary key values
+    newDataset_noNum %<>%
+      left_join(., oldDataset_noNum, by=cols[which(!cols == id)]) %>%
       mutate({{id}} := get(paste0(id, ".y"))) %>%
       select(all_of(cols))
+    
+    # Add primary key values to the new dataset
+    newDataset[,id] <- newDataset_noNum[,id]
   }
   
   # Detect deletions
