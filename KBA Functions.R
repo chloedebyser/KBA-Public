@@ -1867,7 +1867,12 @@ update_KBAEBARDataset <- function(dataset, id){
       
       if(oldDataset %>% pull(all_of(col)) %>% is.double(.)){
         
-        oldDataset_noNum[,col] <- sapply(oldDataset_noNum[,col], function(x) as.character(x))
+        if(nrow(oldDataset) > 0){
+          oldDataset_noNum[,col] <- sapply(oldDataset_noNum[,col], function(x) as.character(x))
+          
+        }else{
+          oldDataset_noNum[,col] <- as.character()
+        }
       }
     }
     
