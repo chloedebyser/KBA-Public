@@ -1867,8 +1867,7 @@ update_KBAEBARDataset <- function(dataset, id){
       
       if(oldDataset %>% pull(all_of(col)) %>% is.double(.)){
         
-        oldDataset_noNum %<>%
-          mutate({{col}} := as.character(.[,col]))
+        oldDataset_noNum[,col] <- sapply(oldDataset_noNum[,col], function(x) as.character(x))
       }
     }
     
@@ -1879,8 +1878,7 @@ update_KBAEBARDataset <- function(dataset, id){
       
       if(newDataset %>% pull(all_of(col)) %>% is.double(.)){
         
-        newDataset_noNum %<>%
-          mutate({{col}} := as.character(.[,col]))
+        newDataset_noNum[,col] <- sapply(newDataset_noNum[,col], function(x) as.character(x))
       }
     }
     
