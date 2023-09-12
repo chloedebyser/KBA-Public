@@ -1483,11 +1483,16 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
 }
 
 #### KBA-EBAR Database - Load data ####
-read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account){
+read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, epsg){
 
   # Load password and CRS
   if(!missing(environmentPath)){
     load(environmentPath)
+  }
+  
+  # Change CRS if specified in parameters
+  if(!missing(epsg)){
+    crs <- epsg
   }
   
   # Database parameters
@@ -1580,8 +1585,8 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account){
     if(!spatial){
       data %<>% st_drop_geometry()
     
-    # If spatial, transform to the database CRS
-    }else{
+    # If spatial and not the default GeoJSON CRS, transform to the specified CRS
+    }else if(!crs == 4326){
       data %<>% st_transform(., crs)
     }
     
@@ -1968,7 +1973,6 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 }
 
 #### Full Site Proposal - Check data validity ####
-# TO DO: Add check that meetscriteria is never NA
 # TO DO: Add checks on conservation status being used (i.e. that there needs to be a status at all - i.e. only A1 - and that it is the correct one)
 check_KBADataValidity <- function(){
   
@@ -1977,6 +1981,22 @@ check_KBADataValidity <- function(){
   message <- c()
   
   # KBA CANADA PROPOSAL FORM
+        # Check that a national name is provided
+  if(length(PF_nationalName) == 0 | nchar(PF_nationalName) == 0 | is.na(PF_nationalName)){
+    error <- T
+    message <- c(message, "There is no national name entered in the proposal form.")
+  }
+  
+        # Check that a site code is provided
+  SiteCode_PF <- PF_site %>%
+    filter(Field == "Canadian Site Code") %>%
+    pull(GENERAL)
+  
+  if(length(SiteCode_PF) == 0 | nchar(SiteCode_PF) == 0 | is.na(SiteCode_PF)){
+    error <- T
+    message <- c(message, "There is no site code entered in the proposal form.")
+  }
+  
         # Check that proposer email is provided twice
   if(PF_formVersion < 1.2){
     if(!PF_proposer$Entry[which(PF_proposer$Field == "Email of proposal development lead")] == PF_proposer$Entry[which(PF_proposer$Field == "Email (please re-enter)")]){
@@ -2067,21 +2087,114 @@ check_KBADataValidity <- function(){
   }
   
   # KBA-EBAR DATABASE
+        # Site record was found in the database
+  if(nrow(DBS_KBASite) == 0){
+    error <- T
+    message <- c(message, "The site was not found in the database")
+  }
+  
+        # There aren't multiple records with that national name and version in the database
+  duplicateSites <- DB_KBASite %>%
+    filter((nationalname == PF_nationalName) & (version == PF_siteVersion))
+    
+  if(nrow(duplicateSites)>1){
+    error <- T
+    message <- c(message, "There are several records with that National Name and Version in the database")
+  }
+  
+        # There aren't multiple records with that site code and version in the database
+  SiteCode_DB <- DBS_KBASite %>%
+    pull(sitecode)
+  
+  duplicateSites <- DB_KBASite %>%
+    filter((sitecode == SiteCode_DB) & (version == PF_siteVersion))
+  
+  if(nrow(duplicateSites)>1){
+    error <- T
+    message <- c(message, "There are several records with that Site Code and Version in the database")
+  }
+  
         # Boundary generalization
   if(DBS_KBASite$boundarygeneralization == "2"){
     error <- T
     message <- c(message, "The site boundary needs to be generalized!")
   }
   
-        # PresentAtSite
+        # SpeciesAtSite
+  if(length(unique(DBS_SpeciesAtSite$speciesid)) < nrow(DBS_SpeciesAtSite)){
+    error <- T
+    message <- c(message, "There are duplicate SpeciesAtSite records in the database")
+  }
+  
+        # EcosystemAtSite
+  if(length(unique(DBS_EcosystemAtSite$speciesid)) < nrow(DBS_EcosystemAtSite)){
+    error <- T
+    message <- c(message, "There are duplicate EcosystemAtSite records in the database")
+  }
+  
+        # MeetsCriteria - Species
+  meetsCriteriaSpp <- DBS_SpeciesAtSite %>%
+    pull(meetscriteria)
+  
+  if(sum(is.na(meetsCriteriaSpp)) > 0){
+    error <- T
+    message <- c(message, "There are some SpeciesAtSite records in the database with MeetsCriteria = NA")
+  }
+  
+        # MeetsCriteria - Ecosystems
+  meetsCriteriaEco <- DBS_EcosystemAtSite %>%
+    pull(meetscriteria)
+  
+  if(sum(is.na(meetsCriteriaEco)) > 0){
+    error <- T
+    message <- c(message, "There are some EcosystemAtSite records in the database with MeetsCriteria = NA")
+  }
+  
+        # MeetsCriteria - All
+  meetsCriteria <- c(meetsCriteriaSpp, meetsCriteriaEco)
+  
+  if(!sum(meetsCriteria == "Y") >= 1){
+    error <- T
+    message <- c(message, "There are no biodiversity elements that meet criteria")
+  }
+  
+        # PresentAtSite - Species
   presentAtSite <- DBS_SpeciesAtSite %>%
-    filter(meetscriteria == "Yes") %>%
+    filter(meetscriteria == "Y") %>%
     pull(presentatsite) %>%
     unique()
   
   if(sum(!presentAtSite == "Y") > 0){
     error <- T
     message <- c(message, "Some SpeciesAtSite records that meet criteria are not flagged as PresentAtSite = Yes")
+  }
+  
+        # KBAInputPolygon
+              # SpatialScope
+  noSpatialScope <- DBS_KBAInputPolygon %>%
+    filter(is.na(spatialscope))
+  
+  if(nrow(noSpatialScope) > 0){
+    error <- T
+    message <- c(message, "There are KBAInputPolygons with scope = NA")
+  }
+  
+              # Neither InputPolygonID nor RangeMapID
+  noRelatedID <- DBS_KBAInputPolygon %>%
+    filter(is.na(inputpolygonid) & is.na(rangemapid))
+  
+  if(nrow(noRelatedID) > 0){
+    error <- T
+    message <- c(message, "There are KBAInputPolygon records without an InputPolygonID nor a RangeMapID")
+  }
+  
+              # InputPolygonID and RangeMapID
+  twoRelatedID <- DBS_KBAInputPolygon %>%
+    filter(!is.na(inputpolygonid) & !is.na(rangemapid))
+  
+  if(nrow(twoRelatedID) > 0){
+    error <- T
+    message <- c(message, "There are KBAInputPolygon records with both an InputPolygonID and a RangeMapID")
   }
   
   # CONCURRENCE BETWEEN KBA CANADA PROPOSAL FORM AND KBA-EBAR DATABASE
@@ -2096,6 +2209,12 @@ check_KBADataValidity <- function(){
   if(!SiteName_DB == SiteName_PF){
     error <- T
     message <- c(message, "There is a mismatch between the site name in the proposal form and in the database.")
+  }
+  
+        # Site code
+  if(!SiteCode_DB == SiteCode_PF){
+    error <- T
+    message <- c(message, "There is a mismatch between the site code in the proposal form and in the database.")
   }
   
         # Site version
