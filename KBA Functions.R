@@ -1523,7 +1523,8 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("InputDataset", "Restricted/FeatureServer/7", F),
                      c("ECCCRangeMap", "Restricted/FeatureServer/2", T),
                      c("RangeMap", "Restricted/FeatureServer/10", F),
-                     c("EcoshapeOverviewRangeMap", "EcoshapeRangeMap/FeatureServer/1", T))
+                     c("EcoshapeOverviewRangeMap", "EcoshapeRangeMap/FeatureServer/1", T),
+                     c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T))
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
@@ -1561,6 +1562,14 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
         pull(datasetsourceid) %>%
         {DB_InputDataset[which(DB_InputDataset$datasetsourceid %in% .), "inputdatasetid"]} %>%
         {paste0("inputdatasetid IN (", paste(., collapse=","), ")")}
+      
+    }else if(name == "InputPolygonRelToKBAs"){
+      
+      query <- DB_KBAInputPolygon %>%
+        filter(!is.na(inputpolygonid)) %>%
+        pull(inputpolygonid) %>%
+        unique() %>%
+        {paste0("inputpolygonid IN (", paste(., collapse=","), ")")}
       
     }else{
       
@@ -1712,7 +1721,8 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
                      c("BiodivElementDistribution", "KBA_View/FeatureServer/4", T),
                      c("KBACustomPolygon", "KBA_View/FeatureServer/1", T),
                      c("KBAInputPolygon", "KBA_View/FeatureServer/6", T),
-                     c("KBAAcceptedSite", "KBA_Accepted_Sites/FeatureServer/0", T))
+                     c("KBAAcceptedSite", "KBA_Accepted_Sites/FeatureServer/0", T),
+                     c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T))
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
@@ -1774,6 +1784,10 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
       
       if(name %in% c("KBAInputPolygon", "KBACustomPolygon")){
         data %<>% filter((speciesatsiteid %in% SpeciesAtSite$speciesatsiteid) | (ecosystematsiteid %in% EcosystemAtSite$ecosystematsiteid))
+      }
+      
+      if(name == "InputPolygonRelToKBAs"){
+        data %<>% filter(inputpolygonid %in% KBAInputPolygon$inputpolygonid)
       }
     }
     
