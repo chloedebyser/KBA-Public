@@ -2395,7 +2395,7 @@ check_KBADataValidity <- function(){
     pull(speciesid) %>%
     unique()
   
-  if(length(SpeciesIDs_PF) > nrow(PF_species)){
+  if(length(SpeciesIDs_PF) > nrow(PF_species[which(!is.na(PF_species$`Criteria met`)),])){
     SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
       filter((national_engl_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Common name"]) & (national_scientific_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Scientific name"])) %>%
       pull(speciesid) %>%
