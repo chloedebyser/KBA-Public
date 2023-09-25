@@ -2141,7 +2141,7 @@ check_KBADataValidity <- function(){
   }
   
         # EcosystemAtSite
-  if(length(unique(DBS_EcosystemAtSite$speciesid)) < nrow(DBS_EcosystemAtSite)){
+  if(length(unique(DBS_EcosystemAtSite$ecosystemid)) < nrow(DBS_EcosystemAtSite)){
     error <- T
     message <- c(message, "There are duplicate EcosystemAtSite records in the database")
   }
