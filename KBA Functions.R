@@ -1649,6 +1649,10 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
       data %<>% mutate(n_rank_review_date = as.POSIXct(as.numeric(n_rank_review_date)/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
+    if("sara_status_date" %in% colnames(data)){
+      data %<>% mutate(sara_status_date = as.POSIXct(as.numeric(sara_status_date)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
     # Format integers
     if("sitestatus" %in% colnames(data)){
       data %<>% mutate(sitestatus = as.integer(sitestatus))
