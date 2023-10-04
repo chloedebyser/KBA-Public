@@ -2377,7 +2377,7 @@ check_KBADataValidity <- function(){
     pull(speciesid) %>%
     unique()
   
-  if(length(SpeciesIDs_PF) > nrow(PF_species)){
+  if(length(SpeciesIDs_PF) > length(unique(PF_species$`Common name`))){
     SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
       filter((national_engl_name %in% PF_species$`Common name`) & (national_scientific_name %in% PF_species$`Scientific name`)) %>%
       pull(speciesid) %>%
@@ -2399,7 +2399,7 @@ check_KBADataValidity <- function(){
     pull(speciesid) %>%
     unique()
   
-  if(length(SpeciesIDs_PF) > nrow(PF_species[which(!is.na(PF_species$`Criteria met`)),])){
+  if(length(SpeciesIDs_PF) > length(unique(PF_species[which(!is.na(PF_species$`Criteria met`)),"Common name"]))){
     SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
       filter((national_engl_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Common name"]) & (national_scientific_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Scientific name"])) %>%
       pull(speciesid) %>%
@@ -2642,4 +2642,99 @@ pasteEnumeration <- function(string){
 m2tokm2 <- function(x){
   y <- x/1000000
   return(y)
+}
+
+#### Miscellaneous - Convert character codes to special characters ####
+specialCharacters <- function(x){
+  
+  # é
+  x <- gsub("&eacute;", "é", x)
+  
+  # É
+  x <- gsub("&Eacute;", "É", x)
+  
+  # è
+  x <- gsub("&egrave;", "è", x)
+  
+  # È
+  x <- gsub("&Egrave;", "È", x)
+  
+  # ê
+  x <- gsub("&ecirc;", "ê", x)
+  
+  # Ê
+  x <- gsub("&Ecirc;", "Ê", x)
+  
+  # à
+  x <- gsub("&agrave;", "à", x)
+  
+  # À
+  x <- gsub("&Agrave;", "À", x)
+  
+  # â
+  x <- gsub("&acirc;", "â", x)
+  
+  # Â
+  x <- gsub("&Acirc;", "Â", x)
+  
+  # î
+  x <- gsub("&icirc;", "î", x)
+  
+  # Î
+  x <- gsub("&Icirc;", "Î", x)
+  
+  # ï
+  x <- gsub("&iuml;", "ï", x)
+  
+  # Ï
+  x <- gsub("&Iuml;", "Ï", x)
+  
+  # ù
+  x <- gsub("&ugrave;", "ù", x)
+  
+  # Ù
+  x <- gsub("&Ugrave;", "Ù", x)
+  
+  # û
+  x <- gsub("&ucirc;", "û", x)
+  
+  # Û
+  x <- gsub("&Ucirc;", "Û", x)
+  
+  # ô
+  x <- gsub("&ocirc;", "ô", x)
+  
+  # Ô
+  x <- gsub("&Ocirc;", "Ô", x)
+  
+  # œ
+  x <- gsub("&oelig;", "œ", x)
+  
+  # Œ
+  x <- gsub("&OElig;", "Œ", x)
+  
+  # ç
+  x <- gsub("&ccedil;", "ç", x)
+  
+  # Ç
+  x <- gsub("&Ccedil;", "Ç", x)
+  
+  # '
+  x <- gsub("&rsquo;", "'", x)
+  x <- gsub("&apos;", "'", x)
+  
+  # -
+  x <- gsub("&ndash;", "-", x)
+  
+  # «
+  x <- gsub("&laquo;", "«", x)
+  
+  # »
+  x <- gsub("&raquo;", "»", x)
+  
+  # 
+  x <- gsub("&nbsp;", " ", x)
+  
+  # Return result
+  return(x)
 }
