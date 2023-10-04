@@ -1519,6 +1519,7 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("KBACustomPolygon", "KBA_View/FeatureServer/1", T),
                      c("KBAInputPolygon", "KBA_View/FeatureServer/6", T),
                      c("KBAAcceptedSite", "KBA_Accepted_Sites/FeatureServer/0", T),
+                     c("KBAInProgressSite", "KBA_InProgress_Sites/FeatureServer/0", T),
                      c("DatasetSource", "Restricted/FeatureServer/5", F),
                      c("InputDataset", "Restricted/FeatureServer/7", F),
                      c("ECCCRangeMap", "Restricted/FeatureServer/2", T),
@@ -1726,6 +1727,7 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
                      c("KBACustomPolygon", "KBA_View/FeatureServer/1", T),
                      c("KBAInputPolygon", "KBA_View/FeatureServer/6", T),
                      c("KBAAcceptedSite", "KBA_Accepted_Sites/FeatureServer/0", T),
+                     c("KBAInProgressSite", "KBA_InProgress_Sites/FeatureServer/0", T),
                      c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T))
   
   # Only retain datasets that are desired
@@ -1753,7 +1755,7 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
     # Filtering
     if(nrow(data) > 0){
       
-      if(name %in% c("KBASite", "SpeciesAtSite", "EcosystemAtSite", "KBACitation", "KBAThreat", "KBAAction", "KBALandCover", "KBAProtectedArea", "OriginalDelineation", "KBAAcceptedSite")){
+      if(name %in% c("KBASite", "SpeciesAtSite", "EcosystemAtSite", "KBACitation", "KBAThreat", "KBAAction", "KBALandCover", "KBAProtectedArea", "OriginalDelineation", "KBAAcceptedSite", "KBAInProgressSite")){
         data %<>% filter(kbasiteid %in% KBASiteIDs)
       }
       
