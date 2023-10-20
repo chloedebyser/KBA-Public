@@ -2470,9 +2470,16 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
   speciesatsite <- get(paste0(prefix, "_", "SpeciesAtSite"))
   speciesBiotics <- get(paste0(prefix, "_", "BIOTICS_ELEMENT_NATIONAL"))
   
-        # Add informal taxonomic group
+        # Add taxonomic information
   speciesatsite %<>%
-    left_join(., speciesBiotics[, c("speciesid", "kba_group")], by="speciesid") %>%
+    left_join(., speciesBiotics[, c("speciesid", "kba_group", "national_scientific_name")], by="speciesid") %>%
+    select(speciesatsiteid, national_scientific_name, kba_group)
+  
+        # Get criteria met
+  speciesatsite %<>%
+    left_join(., PF_species[, c("Criteria met", "Scientific name", "KBA level")], by=c("national_scientific_name"="Scientific name")) %>%
+    mutate(globalcriteria = as.character(ifelse(`KBA level` == "Global", gsub("g", "", `Criteria met`), NA)),
+           nationalcriteria = as.character(ifelse(`KBA level` == "National", gsub("n", "", `Criteria met`), NA))) %>%
     select(speciesatsiteid, kba_group, globalcriteria, nationalcriteria)
   
         # Remove taxonomic group information if sensitive
@@ -2492,10 +2499,17 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
   ecosystematsite <- get(paste0(prefix, "_", "EcosystemAtSite"))
   ecosystemBiotics <- get(paste0(prefix, "_", "BIOTICS_ECOSYSTEM"))
   
-        # Add informal classification group
+        # Add classification information
   ecosystematsite %<>%
-    left_join(., ecosystemBiotics[, c("ecosystemid", "subclass_name")], by="ecosystemid") %>%
+    left_join(., ecosystemBiotics[, c("ecosystemid", "subclass_name", "cnvc_english_name")], by="ecosystemid") %>%
     rename(kba_group = subclass_name) %>%
+    select(cnvc_english_name, kba_group)
+  
+        # Get criteria met
+  ecosystematsite %<>%
+    left_join(., PF_ecosystems[, c("Criteria met", "Name of ecosystem type", "KBA level")], by=c("cnvc_english_name"="Name of ecosystem type")) %>%
+    mutate(globalcriteria = as.character(ifelse(`KBA level` == "Global", gsub("g", "", `Criteria met`), NA)),
+           nationalcriteria = as.character(ifelse(`KBA level` == "National", gsub("n", "", `Criteria met`), NA))) %>%
     select(kba_group, globalcriteria, nationalcriteria)
   
   # All biodiversity elements
