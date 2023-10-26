@@ -2647,7 +2647,7 @@ pasteEnumeration <- function(string){
     
   }else{
     
-    finalText <- paste(paste(string[1:(length(string)-1)], collapse=", "), string[length(string)], collapse=" & ")
+    finalText <- paste(paste(string[1:(length(string)-1)], collapse=", "), string[length(string)], sep=" & ")
   }
   
   # Return final text
