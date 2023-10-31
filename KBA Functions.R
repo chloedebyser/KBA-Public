@@ -226,6 +226,9 @@ read_KBACanadaProposalForm <- function(formPath, final){
            `Derivation of best estimate` = ifelse(`Derivation of best estimate` == "Other (please add further details in column AA)", "Other", `Derivation of best estimate`)) %>%
     arrange(`Scientific name`)
   
+        # Handle scientific names of the type "sp. #"
+  species %<>% mutate(`Scientific name` = trimws(gsub("sp.", "sp. ", `Scientific name`)))
+  
         # Handle differing form versions
   if(formVersion < 1.2){
     
