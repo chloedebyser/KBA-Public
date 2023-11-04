@@ -227,7 +227,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
     arrange(`Scientific name`)
   
         # Handle scientific names of the type "sp. #"
-  species %<>% mutate(`Scientific name` = trimws(gsub("sp.", "sp. ", `Scientific name`)))
+  species %<>% mutate(`Scientific name` = trimws(gsub(" sp.", " sp. ", `Scientific name`, fixed=T)))
   
         # Handle differing form versions
   if(formVersion < 1.2){
