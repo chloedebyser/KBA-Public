@@ -2028,6 +2028,16 @@ check_KBADataValidity <- function(){
     }
   }
   
+        # Check that all triggers are valid taxonomic concepts
+  SpeciesValidity <- DB_BIOTICS_ELEMENT_NATIONAL %>%
+    filter(national_scientific_name %in% PF_species$`Scientific name`) %>%
+    unique()
+  
+  if((sum(SpeciesValidity$bcd_style_n_rank == "NSYN") + sum(SpeciesValidity$inactive_ind == "Y")) > 0){
+    error <- T
+    message <- c(message, "Some triggers are not valid taxonomic concepts.")
+  }
+  
         # Check that threats are correctly linked to triggers, where applicable
               # Check that 'Specific biodiversity elements' field is correctly populated
                     # If threat applies to the Entire site
