@@ -2031,9 +2031,11 @@ check_KBADataValidity <- function(){
         # Check that all triggers are valid taxonomic concepts
   SpeciesValidity <- DB_BIOTICS_ELEMENT_NATIONAL %>%
     filter(national_scientific_name %in% PF_species$`Scientific name`) %>%
-    unique()
+    unique() %>%
+    mutate(IsValid = ifelse((!is.na(bcd_style_n_rank) && (bcd_style_n_rank == "NSYN")) || (inactive_ind == "Y"), F, T)) %>%
+    select(national_scientific_name, IsValid)
   
-  if((sum(SpeciesValidity$bcd_style_n_rank == "NSYN") + sum(SpeciesValidity$inactive_ind == "Y")) > 0){
+  if(sum(!SpeciesValidity$IsValid) > 0){
     error <- T
     message <- c(message, "Some triggers are not valid taxonomic concepts.")
   }
@@ -2315,9 +2317,11 @@ check_KBADataValidity <- function(){
     filter(Field %in% c("Latitude (dd.dddd)", "Longitude (ddd.dddd)")) %>%
     pull(GENERAL)
   
-  if(!sum(LatLon_DB == LatLon_PF) == 2){
-    error <- T
-    message <- c(message, "There is a mismatch between the latitude and longitude provided in the proposal form and that provided in the database.")
+  if(!sum(is.na(LatLon_PF)) == 2){
+    if(!sum(LatLon_DB == LatLon_PF) == 2){
+      error <- T
+      message <- c(message, "There is a mismatch between the latitude and longitude provided in the proposal form and that provided in the database.")
+    }
   }
   
         # Species
