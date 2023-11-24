@@ -2032,7 +2032,7 @@ check_KBADataValidity <- function(){
   SpeciesValidity <- DB_BIOTICS_ELEMENT_NATIONAL %>%
     filter(national_scientific_name %in% PF_species$`Scientific name`) %>%
     unique() %>%
-    mutate(IsValid = ifelse((!is.na(bcd_style_n_rank) && (bcd_style_n_rank == "NSYN")) || (inactive_ind == "Y"), F, T)) %>%
+    mutate(IsValid = case_when(inactive_ind == "Y" ~ F, is.na(bcd_style_n_rank) ~ T, bcd_style_n_rank == "NSYN" ~ F, .default = T)) %>%
     select(national_scientific_name, IsValid)
   
   if(sum(!SpeciesValidity$IsValid) > 0){
