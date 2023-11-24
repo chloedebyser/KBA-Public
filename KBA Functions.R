@@ -2199,7 +2199,7 @@ check_KBADataValidity <- function(){
     pull(presentatsite) %>%
     unique()
   
-  if(sum(!presentAtSite == "Y") > 0){
+  if(sum(is.na(presentAtSite)) > 0 || sum(!presentAtSite == "Y") > 0){
     error <- T
     message <- c(message, "Some SpeciesAtSite records that meet criteria are not flagged as PresentAtSite = Yes")
   }
