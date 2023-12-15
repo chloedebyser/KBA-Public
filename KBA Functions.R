@@ -725,10 +725,10 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
                 # Do you have a second taxon of interest? (optional)
     
                 # Are you, or one of the co-proposers, a member of an IUCN Specialist Group? (optional)
-    writeData(multiSiteForm_wb, sheet = "1. Proposer", x="", xy=c(2,19))
+    writeData(multiSiteForm_wb, sheet = "1. Proposer", x=PF_proposer %>% filter(Field == "Membership in an IUCN Specialist group") %>% pull(Entry), xy=c(2,19))
     
                 # Name of Group
-    writeData(multiSiteForm_wb, sheet = "1. Proposer", x="", xy=c(4,19))
+    writeData(multiSiteForm_wb, sheet = "1. Proposer", x=PF_proposer %>% filter(Field == "Name of the IUCN Specialist group") %>% pull(Entry), xy=c(4,19))
     
                 # Have you or one of your co-proposers, identified or proposed one or more KBAs before? (optional)
     writeData(multiSiteForm_wb, sheet = "1. Proposer", x="Yes", xy=c(2,20))
@@ -881,10 +881,11 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
     
                 # How is the site managed or potentially manageable?
     siteManagement <- PF_site %>%
-      filter(Field == "Site management") %>%
+      filter(Field == "Conservation") %>%
       pull(GENERAL) %>%
       gsub("<i>", "", .) %>%
-      gsub("</i>", "", .)
+      gsub("</i>", "", .) %>%
+      {ifelse(. == "None", "There are no known conservation actions at this site.", .)}
     
     for(citationIndex in 1:nrow(PF_citations)){
       siteManagement %<>% gsub(PF_citations$`Short citation`[citationIndex], PF_citations$`Long citation`[citationIndex], .)
