@@ -916,11 +916,66 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
     writeData(multiSiteForm_wb, sheet = "2. Site data", x=DBS_KBASite$protectedareas_en, xy=c(36,5))
     
                 # Relationship with protected area boundaries
+    PARelationship <- c("")
+    
     if(DBS_KBASite$percentprotected == 0){
-      writeData(multiSiteForm_wb, sheet = "2. Site data", x="KBA boundary does not intersect any PA boundaries", xy=c(37,5))
+      PARelationship <- "KBA boundary does not intersect any PA boundaries"
+    
     }else{
-      stop("No method for use case: percent protected > 0")
+      
+      PA_intersection <- st_intersection(DBS_KBASite, cpcad) %>%
+        st_make_valid() %>%
+        select(NAME_E) %>%
+        mutate(Areakm2 = as.numeric(st_area(.))/1000000) %>%
+        filter(Areakm2 >= 1)
+        
+      if(nrow(PA_intersection) > 0){
+        
+        for(PA in 1:nrow(PA_intersection)){
+          
+          PA_name <- PA_intersection$NAME_E[PA]
+          
+          PANotSite <- cpcad %>%
+            filter(NAME_E == PA_name) %>%
+            st_difference(., DBS_KBASite) %>%
+            select(NAME_E) %>%
+            mutate(Areakm2 = as.numeric(st_area(.))/1000000) %>%
+            filter(Areakm2 >= 1)
+          
+          SiteNotPA <- cpcad %>%
+            filter(NAME_E == PA_name) %>%
+            st_difference(DBS_KBASite, .) %>%
+            select(NAME_E) %>%
+            mutate(Areakm2 = as.numeric(st_area(.))/1000000) %>%
+            filter(Areakm2 >= 1)
+          
+          if(nrow(PANotSite) + nrow(SiteNotPA) == 0){
+            PARelationship <- c(PARelationship, "Identical")
+            
+          }else if(nrow(PANotSite) == 0){
+            PARelationship <- c(PARelationship, "Contains")
+            
+          }else{
+            PARelationship <- c(PARelationship, "Overlaps")
+          }
+        }
+        
+        if("Identical" %in% PARelationship){
+          PARelationship <- "KBA boundary exactly follows a PA boundary"
+          
+        }else if("Overlaps" %in% PARelationship){
+          PARelationship <- "KBA overlaps one or more PA boundaries"
+          
+        }else{
+          PARelationship <- "KBA contains one or more PA boundaries"
+        }
+        
+      }else{
+        stop("Percent protected > 0 and no CPCAD intersection")
+      }
     }
+    
+    writeData(multiSiteForm_wb, sheet = "2. Site data", x=PARelationship, xy=c(37,5))
     
                 # Additional biodiversity values at site
     additionalBiodiversity <- PF_site %>%
