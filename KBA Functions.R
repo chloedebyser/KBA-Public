@@ -2174,8 +2174,8 @@ check_KBADataValidity <- function(){
                               Status %in% c("E", "T", "GH", "G1", "G2", "TH", "T1", "T2", "NH", "N1", "N2") ~ Status,
                               .default=NA)) %>%
     rowwise() %>%
-    mutate(CorrectGStatus = grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_g_a1_status, fixed=T),
-           CorrectNStatus = grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_n_a1_status, fixed=T)) %>%
+    mutate(CorrectGStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_g_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_g_a1_status, fixed=T)),
+           CorrectNStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_n_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_n_a1_status, fixed=T))) %>%
     mutate(CorrectGStatus = ifelse(is.na(CorrectGStatus),
                                    ifelse(is.na(kbatrigger_g_a1_status), T, F),
                                    CorrectGStatus),
