@@ -234,7 +234,8 @@ read_KBACanadaProposalForm <- function(formPath, final){
     
     species %<>%
       rename(`RU source` = `RU Source`,
-             `Seasonal distribution` = `Seasonal Distribution`) %>%
+             `Seasonal distribution` = `Seasonal Distribution`,
+             `Evidence year` = `Evidence Year`) %>%
       mutate(display_taxonomicgroup = "Yes",
              display_taxonname = "Yes",
              display_alternativename = NA,
