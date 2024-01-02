@@ -1218,7 +1218,7 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
           writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=descriptionOfEvidence, xy=c(27,line))
           
                 # Most recent year for which there is evidence species is present
-          writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_species %>% filter(SpeciesIndex == index) %>% pull(`Evidence Year`), xy=c(28,line))
+          writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_species %>% filter(SpeciesIndex == index) %>% pull(`Evidence year`), xy=c(28,line))
           
                 # Min. number of reproductive units (RU) at site
           writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_species %>% filter(SpeciesIndex == index) %>% pull(`Reproductive Units (RU)`), xy=c(29,line))
