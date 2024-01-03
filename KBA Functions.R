@@ -1155,7 +1155,9 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
           }
           
                 # Equivalent system if not IUCN Red List.
-          writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ifelse((statusAssessmentAgency == "IUCN") | is.na(status), "", statusAssessmentAgency), xy=c(12,line))
+          if(!is.na(status)){
+            writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=ifelse((statusAssessmentAgency == "IUCN") | is.na(status), "", statusAssessmentAgency), xy=c(12,line))
+          }
           
                 # Assess against A1c/A1d?
           writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_resultsSpecies %>% filter(SpeciesIndex == index) %>% pull(`Eligible for A1c/d`), xy=c(13,line))
