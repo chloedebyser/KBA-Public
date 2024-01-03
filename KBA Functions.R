@@ -490,7 +490,8 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
               # Species assessed nationally and not globally
                     # Format dataset
   speciesNnotG <- speciesN[which(!speciesN %in% speciesG)]
-  speciesNnotG <- PF_species[which(PF_species$`NatureServe Element Code` == speciesNnotG), ] %>%
+  speciesNnotG <- PF_species %>%
+    filter(`NatureServe Element Code` %in% speciesNnotG) %>%
     mutate(Trigger = ifelse(is.na(`Criteria met`), "No", "Yes")) %>%
       select(`Common name`, `Scientific name`, Trigger) %>%
       distinct() %>%
