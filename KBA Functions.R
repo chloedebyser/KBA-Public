@@ -928,8 +928,9 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
       PA_intersection <- st_intersection(DBS_KBASite, cpcad) %>%
         st_make_valid() %>%
         select(NAME_E) %>%
-        mutate(Areakm2 = as.numeric(st_area(.))/1000000) %>%
-        filter(Areakm2 >= 1)
+        mutate(Areakm2 = as.numeric(st_area(.))/1000000,
+               Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
+        filter(Percent >= 1)
         
       if(nrow(PA_intersection) > 0){
         
@@ -941,15 +942,17 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
             filter(NAME_E == PA_name) %>%
             st_difference(., DBS_KBASite) %>%
             select(NAME_E) %>%
-            mutate(Areakm2 = as.numeric(st_area(.))/1000000) %>%
-            filter(Areakm2 >= 1)
+            mutate(Areakm2 = as.numeric(st_area(.))/1000000,
+                   Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
+            filter(Percent >= 1)
           
           SiteNotPA <- cpcad %>%
             filter(NAME_E == PA_name) %>%
             st_difference(DBS_KBASite, .) %>%
             select(NAME_E) %>%
-            mutate(Areakm2 = as.numeric(st_area(.))/1000000) %>%
-            filter(Areakm2 >= 1)
+            mutate(Areakm2 = as.numeric(st_area(.))/1000000,
+                   Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
+            filter(Percent >= 1)
           
           if(nrow(PANotSite) + nrow(SiteNotPA) == 0){
             PARelationship <- c(PARelationship, "Identical")
