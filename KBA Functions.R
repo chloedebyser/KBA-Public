@@ -912,7 +912,42 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
     writeData(multiSiteForm_wb, sheet = "2. Site data", x=PF_site %>% filter(Field == "Boundary file provided?") %>% pull(GENERAL), xy=c(34,5))
     
                 # How much of the site is covered by protected areas?
-    writeData(multiSiteForm_wb, sheet = "2. Site data", x=DBS_KBASite$percentprotected, xy=c(35,5))
+    if(DBS_KBASite$percentprotected < 0.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="0% - completely unprotected", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 10.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="1-10%", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 20.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="11-20%", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 30.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="21-30%", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 40.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="31-40%", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 50.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="41-50%", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 60.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="51-60%", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 70.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="61-70%", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 80.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="71-80%", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 90.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="81-90%", xy=c(35,5))
+      
+    }else if(DBS_KBASite$percentprotected < 99.5){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="91-99%", xy=c(35,5))
+      
+    }else{
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="100% - completely protected", xy=c(35,5))
+    }
     
                 # If covered by protected area which is it?
     writeData(multiSiteForm_wb, sheet = "2. Site data", x=DBS_KBASite$protectedareas_en, xy=c(36,5))
