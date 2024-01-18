@@ -2233,7 +2233,11 @@ check_KBADataValidity <- function(final){
   
   if((sum(!conservationStatuses$CorrectGStatus) + sum(!conservationStatuses$CorrectNStatus)) > 0){
     error <- T
-    message <- c(message, "Some conservation statuses entered are incorrect.")
+    wrongConservationStatus <- conservationStatuses %>%
+      filter(!CorrectGStatus | !CorrectNStatus) %>%
+      pull(`Common name`) %>%
+      paste(., collapse="; ")
+    message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
   }
   
                # Otherwise
@@ -2261,7 +2265,11 @@ check_KBADataValidity <- function(final){
   
   if(sum(!conservationStatuses$CorrectStatus) > 0){
     error <- T
-    message <- c(message, "Some conservation statuses entered are incorrect.")
+    wrongConservationStatus <- conservationStatuses %>%
+      filter(!CorrectStatus) %>%
+      pull(`Common name`) %>%
+      paste(., collapse="; ")
+    message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
   }
   
         # Check that threats are correctly linked to triggers, where applicable
