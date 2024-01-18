@@ -2161,7 +2161,9 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 
 #### Full Site Proposal - Check data validity ####
 # Add check that threat levels 1, 2 and 3 are coherent
-check_KBADataValidity <- function(){
+# Add check that biodiversity element distribution records match the proposal form
+# Warn if there are other overlapping sites (that isn't the same site code or name)
+check_KBADataValidity <- function(final){
   
   # Starting parameters
   error <- F
@@ -2175,13 +2177,15 @@ check_KBADataValidity <- function(){
   }
   
         # Check that a site code is provided
-  SiteCode_PF <- PF_site %>%
-    filter(Field == "Canadian Site Code") %>%
-    pull(GENERAL)
-  
-  if(length(SiteCode_PF) == 0 | nchar(SiteCode_PF) == 0 | is.na(SiteCode_PF)){
-    error <- T
-    message <- c(message, "There is no site code entered in the proposal form.")
+  if(final){
+    SiteCode_PF <- PF_site %>%
+      filter(Field == "Canadian Site Code") %>%
+      pull(GENERAL)
+    
+    if(length(SiteCode_PF) == 0 | nchar(SiteCode_PF) == 0 | is.na(SiteCode_PF)){
+      error <- T
+      message <- c(message, "There is no site code entered in the proposal form.")
+    }
   }
   
         # Check that proposer email is provided twice
@@ -2358,15 +2362,17 @@ check_KBADataValidity <- function(){
   }
   
         # There aren't multiple records with that site code and version in the database
-  SiteCode_DB <- DBS_KBASite %>%
-    pull(sitecode)
-  
-  duplicateSites <- DB_KBASite %>%
-    filter((sitecode == SiteCode_DB) & (version == PF_siteVersion))
-  
-  if(nrow(duplicateSites)>1){
-    error <- T
-    message <- c(message, "There are several records with that Site Code and Version in the database")
+  if(final){
+    SiteCode_DB <- DBS_KBASite %>%
+      pull(sitecode)
+    
+    duplicateSites <- DB_KBASite %>%
+      filter((sitecode == SiteCode_DB) & (version == PF_siteVersion))
+    
+    if(nrow(duplicateSites)>1){
+      error <- T
+      message <- c(message, "There are several records with that Site Code and Version in the database")
+    }
   }
   
         # Boundary generalization
@@ -2467,9 +2473,11 @@ check_KBADataValidity <- function(){
   }
   
         # Site code
-  if(!SiteCode_DB == SiteCode_PF){
-    error <- T
-    message <- c(message, "There is a mismatch between the site code in the proposal form and in the database.")
+  if(final){
+    if(!SiteCode_DB == SiteCode_PF){
+      error <- T
+      message <- c(message, "There is a mismatch between the site code in the proposal form and in the database.")
+    }
   }
   
         # Site version
