@@ -2280,6 +2280,12 @@ check_KBADataValidity <- function(final){
     message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
   }
   
+        # Check that level 2 threats are provided
+  if(sum(is.na(PF_threats$`Level 2`)) > 0){
+    error <- T
+    message <- c(message, "In the THREATS tab, some level 2 information is missing.")
+  }
+  
         # Check that threats are correctly linked to triggers, where applicable
               # Check that 'Specific biodiversity elements' field is correctly populated
                     # If threat applies to the Entire site
