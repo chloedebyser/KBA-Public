@@ -1813,8 +1813,16 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
       data %<>% mutate(g_rank_review_date = as.POSIXct(as.numeric(g_rank_review_date)/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
+    if("g_rank_change_date" %in% colnames(data)){
+      data %<>% mutate(g_rank_change_date = as.POSIXct(as.numeric(g_rank_change_date)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
     if("n_rank_review_date" %in% colnames(data)){
       data %<>% mutate(n_rank_review_date = as.POSIXct(as.numeric(n_rank_review_date)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
+    if("n_rank_change_date" %in% colnames(data)){
+      data %<>% mutate(n_rank_change_date = as.POSIXct(as.numeric(n_rank_change_date)/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
     if("sara_status_date" %in% colnames(data)){
