@@ -1691,7 +1691,7 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("InputDataset", "Restricted/FeatureServer/7", F),
                      c("ECCCRangeMap", "Restricted/FeatureServer/2", T),
                      c("RangeMap", "Restricted/FeatureServer/10", F),
-                     c("EcoshapeOverviewRangeMap", "EcoshapeRangeMap/FeatureServer/1", F),
+                     c("EmptyRangeMap", "Summary/FeatureServer/8", F),
                      c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T))
   
   # Only retain datasets that are desired
@@ -1738,6 +1738,10 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
         pull(inputpolygonid) %>%
         unique() %>%
         {paste0("inputpolygonid IN (", paste(., collapse=","), ")")}
+      
+    }else if(name == "EmptyRangeMap"){
+      
+      query <- "rangemapid >= 0"
       
     }else{
       
