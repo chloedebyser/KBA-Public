@@ -1691,7 +1691,7 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("InputDataset", "Restricted/FeatureServer/7", F),
                      c("ECCCRangeMap", "Restricted/FeatureServer/2", T),
                      c("RangeMap", "Restricted/FeatureServer/10", F),
-                     c("EcoshapeOverviewRangeMap", "EcoshapeRangeMap/FeatureServer/1", T),
+                     c("EcoshapeOverviewRangeMap", "EcoshapeRangeMap/FeatureServer/1", F),
                      c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T))
   
   # Only retain datasets that are desired
@@ -1749,14 +1749,21 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
     url$path <- paste(url$path, paste0("EBAR-KBA/", address, "/query"), sep = "/")
     url$query <- list(where = query,
                       outFields = "*",
-                      returnGeometry = "true",
+                      returnGeometry = ifelse(spatial, "true", "false"),
                       f = "geojson")
     request <- build_url(url)
     response <- VERB(verb = "GET",
                      url = request,
                      add_headers(`Authorization` = paste("Bearer ", token)))
-    data <- content(response, as="text") %>%
-      geojson_sf()
+    data <- content(response, as="text")
+    
+    # Check that query limit wasn't exceeded
+    if(grepl("exceededTransferLimit", data, fixed=T)){
+      stop(paste("Query limit exceeded for", name))
+    }
+    
+    # Convert to sf
+    data %<>% geojson_sf()
     
     # If non-spatial, drop geometry
     if(!spatial){
