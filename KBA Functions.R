@@ -964,7 +964,8 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
         st_make_valid() %>%
         select(NAME_E) %>%
         mutate(Areakm2 = as.numeric(st_area(.))/1000000,
-               Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1))
+               Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
+        filter(Percent >= 0.5)
         
       if(nrow(PA_intersection) > 0){
         
