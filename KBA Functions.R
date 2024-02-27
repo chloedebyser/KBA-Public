@@ -2228,68 +2228,74 @@ check_KBADataValidity <- function(final){
   }
   
         # Check that the correct conservation statuses are entered
-              # If the species has a conservation status of level 1 or 2 (whether in the master species list or in the proposal form)
-  conservationStatuses <- PF_species %>%
-    left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "element_code")], by=c("NatureServe Element Code" = "element_code")) %>%
-    left_join(., DB_Species[,c("speciesid", "kbatrigger_g_a1_status", "kbatrigger_n_a1_status")], by="speciesid") %>%
-    mutate(Status = case_when(Status == "Vulnerable (VU)" ~ "VU",
-                              Status == "Endangered (EN)" ~ "EN",
-                              Status == "Critically Endangered (CR)" ~ "CR",
-                              Status == "Critically Endangered (Possibly Extinct)" ~ "CR",
-                              Status %in% c("E", "T", "GH", "G1", "G2", "TH", "T1", "T2", "NH", "N1", "N2") ~ Status,
-                              .default=NA)) %>%
-    rowwise() %>%
-    mutate(CorrectGStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_g_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_g_a1_status, fixed=T)),
-           CorrectNStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_n_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_n_a1_status, fixed=T))) %>%
-    mutate(CorrectGStatus = ifelse(is.na(CorrectGStatus),
-                                   ifelse(is.na(kbatrigger_g_a1_status), T, F),
-                                   CorrectGStatus),
-           CorrectNStatus = ifelse(is.na(CorrectNStatus),
-                                   ifelse(is.na(kbatrigger_n_a1_status), T, F),
-                                   CorrectNStatus)) %>%
-    mutate(CorrectGStatus = case_when((!`KBA level` == "Global") | (!`KBA criterion` == "A1 or B1") ~ T, .default = CorrectGStatus),
-           CorrectNStatus = case_when(!`KBA level` == "National" | (!`KBA criterion` == "A1 or B1") ~ T, .default = CorrectNStatus))
-  
-  if((sum(!conservationStatuses$CorrectGStatus) + sum(!conservationStatuses$CorrectNStatus)) > 0){
-    error <- T
-    wrongConservationStatus <- conservationStatuses %>%
-      filter(!CorrectGStatus | !CorrectNStatus) %>%
-      pull(`Common name`) %>%
-      paste(., collapse="; ")
-    message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
+              # Species
+  if(nrow(PF_species) > 0){
+    
+                    # If the species has a conservation status of level 1 or 2 (whether in the master species list or in the proposal form)
+    conservationStatuses <- PF_species %>%
+      left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "element_code")], by=c("NatureServe Element Code" = "element_code")) %>%
+      left_join(., DB_Species[,c("speciesid", "kbatrigger_g_a1_status", "kbatrigger_n_a1_status")], by="speciesid") %>%
+      mutate(Status = case_when(Status == "Vulnerable (VU)" ~ "VU",
+                                Status == "Endangered (EN)" ~ "EN",
+                                Status == "Critically Endangered (CR)" ~ "CR",
+                                Status == "Critically Endangered (Possibly Extinct)" ~ "CR",
+                                Status %in% c("E", "T", "GH", "G1", "G2", "TH", "T1", "T2", "NH", "N1", "N2") ~ Status,
+                                .default=NA)) %>%
+      rowwise() %>%
+      mutate(CorrectGStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_g_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_g_a1_status, fixed=T)),
+             CorrectNStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_n_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_n_a1_status, fixed=T))) %>%
+      mutate(CorrectGStatus = ifelse(is.na(CorrectGStatus),
+                                     ifelse(is.na(kbatrigger_g_a1_status), T, F),
+                                     CorrectGStatus),
+             CorrectNStatus = ifelse(is.na(CorrectNStatus),
+                                     ifelse(is.na(kbatrigger_n_a1_status), T, F),
+                                     CorrectNStatus)) %>%
+      mutate(CorrectGStatus = case_when((!`KBA level` == "Global") | (!`KBA criterion` == "A1 or B1") ~ T, .default = CorrectGStatus),
+             CorrectNStatus = case_when(!`KBA level` == "National" | (!`KBA criterion` == "A1 or B1") ~ T, .default = CorrectNStatus))
+    
+    if((sum(!conservationStatuses$CorrectGStatus) + sum(!conservationStatuses$CorrectNStatus)) > 0){
+      error <- T
+      wrongConservationStatus <- conservationStatuses %>%
+        filter(!CorrectGStatus | !CorrectNStatus) %>%
+        pull(`Common name`) %>%
+        paste(., collapse="; ")
+      message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
+    }
+    
+                    # Otherwise
+    conservationStatuses <- PF_species %>%
+      left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "element_code", "cosewic_status")], by=c("NatureServe Element Code" = "element_code")) %>%
+      left_join(., DB_Species[,c("speciesid", "iucn_cd", "precautionary_g_rank", "precautionary_n_rank")], by="speciesid") %>%
+      mutate(Status = case_when(Status %in% c("Vulnerable (VU)", "Endangered (EN)", "Critically Endangered (CR)", "Critically Endangered (Possibly Extinct)", "E", "T", "GH", "G1", "G2", "TH", "T1", "T2", "NH", "N1", "N2") ~ NA,
+                                Status == "Near Threatened (NT)" ~ "NT",
+                                Status == "Least Concern (LC)" ~ "LC",
+                                Status == "Data Deficient (DD)" ~ "DD",
+                                .default=Status),
+             CorrectStatus = ifelse(!is.na(Status),
+                                     ifelse(`Status assessment agency` == "IUCN",
+                                            ifelse(Status == iucn_cd,
+                                                   T,
+                                                   F),
+                                            ifelse(`Status assessment agency` == "COSEWIC",
+                                                   ifelse(Status == cosewic_status,
+                                                          T,
+                                                          F),
+                                                   ifelse(Status %in% c(precautionary_g_rank, precautionary_n_rank),
+                                                          T,
+                                                          F))),
+                                     T))
+    
+    if(sum(!conservationStatuses$CorrectStatus) > 0){
+      error <- T
+      wrongConservationStatus <- conservationStatuses %>%
+        filter(!CorrectStatus) %>%
+        pull(`Common name`) %>%
+        paste(., collapse="; ")
+      message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
+    }
   }
   
-               # Otherwise
-  conservationStatuses <- PF_species %>%
-    left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "element_code", "cosewic_status")], by=c("NatureServe Element Code" = "element_code")) %>%
-    left_join(., DB_Species[,c("speciesid", "iucn_cd", "precautionary_g_rank", "precautionary_n_rank")], by="speciesid") %>%
-    mutate(Status = case_when(Status %in% c("Vulnerable (VU)", "Endangered (EN)", "Critically Endangered (CR)", "Critically Endangered (Possibly Extinct)", "E", "T", "GH", "G1", "G2", "TH", "T1", "T2", "NH", "N1", "N2") ~ NA,
-                              Status == "Near Threatened (NT)" ~ "NT",
-                              Status == "Least Concern (LC)" ~ "LC",
-                              Status == "Data Deficient (DD)" ~ "DD",
-                              .default=Status),
-           CorrectStatus = ifelse(!is.na(Status),
-                                   ifelse(`Status assessment agency` == "IUCN",
-                                          ifelse(Status == iucn_cd,
-                                                 T,
-                                                 F),
-                                          ifelse(`Status assessment agency` == "COSEWIC",
-                                                 ifelse(Status == cosewic_status,
-                                                        T,
-                                                        F),
-                                                 ifelse(Status %in% c(precautionary_g_rank, precautionary_n_rank),
-                                                        T,
-                                                        F))),
-                                   T))
-  
-  if(sum(!conservationStatuses$CorrectStatus) > 0){
-    error <- T
-    wrongConservationStatus <- conservationStatuses %>%
-      filter(!CorrectStatus) %>%
-      pull(`Common name`) %>%
-      paste(., collapse="; ")
-    message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
-  }
+              # Ecosystems - TO ADD
   
         # Check that level 2 threats are provided
   if(sum(is.na(PF_threats$`Level 2`)) > 0){
