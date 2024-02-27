@@ -2180,7 +2180,6 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 
 #### Full Site Proposal - Check data validity ####
 # Add check that threat levels 1, 2 and 3 are coherent
-# Add check that biodiversity element distribution records match the proposal form
 # Warn if there are other overlapping sites (that isn't the same site code or name)
 check_KBADataValidity <- function(final){
   
@@ -2733,6 +2732,53 @@ check_KBADataValidity <- function(final){
   if((!sum(EcosystemIDs_PF %in% EcosystemIDs_DB)==length(EcosystemIDs_PF)) | (!sum(EcosystemIDs_DB %in% EcosystemIDs_PF)==length(EcosystemIDs_DB))){
     error <- T
     message <- c(message, "There is a mismatch between the species that meet criteria in EcosystemAtSite and those that meet criteria in the proposal form (based on CNVC_ENGLISH_NAME).")
+  }
+  
+        # Biodiversity element distributions
+  if(PF_formVersion < 1.2){
+    
+    biodivElementDist_form <- PF_site %>%
+      filter(Field == "Species boundary provided?") %>%
+      pull(GENERAL) %>%
+      {ifelse(is.na(.), "No", .)}
+    
+    if((!biodivElementDist_form == "No") & (nrow(DBS_BiodivElementDistribution) == 0)){
+      error <- T
+      message <- c(message, "There is no internal boundary in the database, yet the KBA Canada Proposal Form suggests that there should be.")
+    }
+    
+    if((biodivElementDist_form == "No") & (nrow(DBS_BiodivElementDistribution) > 0)){
+      error <- T
+      message <- c(message, "There is at least one internal boundary in the database, yet the KBA Canada Proposal Form suggests that there shouldn't be.")
+    }
+    
+  }else if(PF_formVersion == 1.2){
+    
+    if(nrow(PF_species) > 0){
+      
+      biodivElementDist_form <- PF_species %>%
+        filter(`Internal boundary` == "Yes") %>%
+        pull(`Common name`)
+      
+      biodivElementDist_DB <- DBS_BiodivElementDistribution %>%
+        left_join(., DBS_SpeciesAtSite[,c("biodivelementdistributionid", "speciesid")], by="biodivelementdistributionid") %>%
+        left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "national_engl_name")], by="speciesid") %>%
+        pull(national_engl_name)
+      
+      if((length(biodivElementDist_form) > 0) & (sum(!biodivElementDist_form %in% biodivElementDist_DB) > 0)){
+        error <- T
+        message <- c(message, "The KBA Canada Proposal Form suggests that some taxa should have internal boundaries, yet those boundaries aren't found in the database.")
+      }
+      
+      if((length(biodivElementDist_DB) > 0) & (sum(!biodivElementDist_DB %in% biodivElementDist_form) > 0)){
+        error <- T
+        message <- c(message, "There are internal boundaries in the database for taxa flagged as 'No internal boundary' in the proposal form.")
+      }
+    }
+    
+  }else{
+    error <- T
+    message <- c(message, "Data validity check for KBA Canada Form version 1.3 not yet implemented. Please contact Chloé.")
   }
   
   # Return end parameters
