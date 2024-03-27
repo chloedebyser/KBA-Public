@@ -2828,11 +2828,12 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
         # Get data
   ecosystematsite <- get(paste0(prefix, "_", "EcosystemAtSite"))
   ecosystemBiotics <- get(paste0(prefix, "_", "BIOTICS_ECOSYSTEM"))
+  ecosystems <- get(paste0(prefix, "_", "Ecosystem"))
   
         # Add classification information
   ecosystematsite %<>%
-    left_join(., ecosystemBiotics[, c("ecosystemid", "subclass_name", "cnvc_english_name")], by="ecosystemid") %>%
-    rename(kba_group = subclass_name) %>%
+    left_join(., ecosystemBiotics[, c("ecosystemid", "cnvc_english_name")], by="ecosystemid") %>%
+    left_join(., ecosystems[, c("ecosystemid", "kba_group")]) %>%
     select(cnvc_english_name, kba_group)
   
         # Get criteria met
