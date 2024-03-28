@@ -2833,7 +2833,7 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
         # Add classification information
   ecosystematsite %<>%
     left_join(., ecosystemBiotics[, c("ecosystemid", "cnvc_english_name")], by="ecosystemid") %>%
-    left_join(., ecosystems[, c("ecosystemid", "kba_group")]) %>%
+    left_join(., ecosystems[, c("ecosystemid", "kba_group")], by="ecosystemid") %>%
     select(cnvc_english_name, kba_group)
   
         # Get criteria met
