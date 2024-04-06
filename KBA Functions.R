@@ -1742,6 +1742,10 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
     }else if(name == "EmptyRangeMap"){
       
       query <- "rangemapid >= 0"
+    
+    }else if(name == "KBASite"){
+      
+      query <- "sitecode IS NOT NULL"
       
     }else{
       
