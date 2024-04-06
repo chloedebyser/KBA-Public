@@ -1743,10 +1743,6 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
       
       query <- "rangemapid >= 0"
     
-    }else if(name == "KBASite"){
-      
-      query <- "sitecode IS NOT NULL"
-      
     }else{
       
       query <- "OBJECTID >= 0"
