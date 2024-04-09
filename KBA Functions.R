@@ -2767,6 +2767,8 @@ check_KBADataValidity <- function(final){
       
       biodivElementDist_DB <- DBS_BiodivElementDistribution %>%
         left_join(., DBS_SpeciesAtSite[,c("biodivelementdistributionid", "speciesid")], by="biodivelementdistributionid") %>%
+        left_join(., DBS_EcosystemAtSite[,c("biodivelementdistributionid", "ecosystemid")], by="biodivelementdistributionid") %>%
+        filter(!is.na(speciesid) | is.na(ecosystemid)) %>%
         left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "national_engl_name")], by="speciesid") %>%
         pull(national_engl_name)
       
