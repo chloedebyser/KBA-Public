@@ -2386,8 +2386,7 @@ check_KBADataValidity <- function(final){
   # KBA-EBAR DATABASE
         # Site record was found in the database
   if(nrow(DBS_KBASite) == 0){
-    error <- T
-    message <- c(message, "The site was not found in the database")
+    stop("The site was not found in the database")
   }
   
         # There aren't multiple records with that national name and version in the database
