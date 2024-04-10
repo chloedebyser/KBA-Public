@@ -2180,7 +2180,7 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 
 #### Full Site Proposal - Check data validity ####
 # Add check that threat levels 1, 2 and 3 are coherent
-# Warn if there are other overlapping sites (that isn't the same site code or name)
+# Warn if there are other overlapping sites (that don't have the same site code or name)
 check_KBADataValidity <- function(final){
   
   # Starting parameters
@@ -2381,6 +2381,66 @@ check_KBADataValidity <- function(final){
   if((length(ecosystemOnly) > 0) & !(sum(ecosystemOnly %in% PF_ecosystems$`Name of ecosystem type`) == length(ecosystemOnly))){
     error <- T
     message <- c(message, "In the THREATS tab, some ecosystems could not be matched to an ecosystem in the ECOSYSTEMS tab.")
+  }
+  
+        # Check that short citations match information in the CITATIONS tab
+              # Format CITATIONS tab
+  KBACitation <- PF_citations %>%
+    rename_with(.fn = function(x) gsub(" ", "", tolower(x))) %>%
+    mutate(kbacitationid = NA,
+           kbasiteid = KBASiteID,
+           kbacitationid = 1:nrow(.))
+  
+              # Species
+                    # Site population size
+  PopSizeCitation_site <- PF_species %>%
+    mutate(popsizecitationid = NA,
+           siteestimate_sources = strsplit(`Sources of site estimates`, "; ")) %>%
+    filter(!is.na(siteestimate_sources)) %>%
+    unnest(siteestimate_sources) %>%
+    mutate(siteestimate_sources = trimws(siteestimate_sources)) %>%
+    filter(!grepl("pers. comm.", siteestimate_sources)) %>%
+    select(popsizecitationid, siteestimate_sources) %>%
+    distinct() %>%
+    left_join(., KBACitation[,c("kbacitationid", "shortcitation")], by=c("siteestimate_sources" = "shortcitation")) %>%
+    filter(!(is.na(kbacitationid) & grepl("unpublished data", .$siteestimate_sources, fixed=T)))
+  
+  if(sum(is.na(PopSizeCitation_site$kbacitationid)) > 0){
+    stop("Some short citations entered in field SiteEstimate_Sources for species do not match any entries in the CITATIONS tab.")
+  }
+  
+                    # Reference population size
+  PopSizeCitation_ref <- PF_species %>%
+    mutate(popsizecitationid = NA,
+           referenceestimate_sources = strsplit(`Sources of reference estimates`, "; ")) %>%
+    filter(!is.na(referenceestimate_sources)) %>%
+    unnest(referenceestimate_sources) %>%
+    mutate(referenceestimate_sources = trimws(referenceestimate_sources)) %>%
+    filter(!grepl("pers. comm.", referenceestimate_sources)) %>%
+    select(popsizecitationid, referenceestimate_sources) %>%
+    distinct() %>%
+    left_join(., KBACitation[,c("kbacitationid", "shortcitation")], by=c("referenceestimate_sources" = "shortcitation")) %>%
+    filter(!(is.na(kbacitationid) & grepl("unpublished data", .$referenceestimate_sources, fixed=T)))
+  
+  if(sum(is.na(PopSizeCitation_ref$kbacitationid)) > 0){
+    stop("Some short citations entered in field ReferenceEstimate_Sources for species do not match any entries in the CITATIONS tab.")
+  }
+  
+              # Ecosystems - TO DO: Update once site and reference extent sources are in separate fields
+  ExtentCitation_site <- PF_ecosystems %>%
+    mutate(extentcitationid = NA,
+           siteestimate_sources = strsplit(`Data source`, "; ")) %>%
+    filter(!is.na(siteestimate_sources)) %>%
+    unnest(siteestimate_sources) %>%
+    mutate(siteestimate_sources = trimws(siteestimate_sources)) %>%
+    filter(!grepl("pers. comm.", siteestimate_sources)) %>%
+    select(extentcitationid, siteestimate_sources) %>%
+    distinct() %>%
+    left_join(., KBACitation[,c("kbacitationid", "shortcitation")], by=c("siteestimate_sources" = "shortcitation")) %>%
+    filter(!(is.na(kbacitationid) & grepl("unpublished data", .$siteestimate_sources, fixed=T)))
+  
+  if(sum(is.na(ExtentCitation_site$kbacitationid)) > 0){
+    stop("Some short citations entered in field 'Data source' for ecosystems do not match any entries in the CITATIONS tab.")
   }
   
   # KBA-EBAR DATABASE
