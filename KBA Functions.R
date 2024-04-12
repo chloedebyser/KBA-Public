@@ -2406,7 +2406,8 @@ check_KBADataValidity <- function(final){
     filter(!(is.na(kbacitationid) & grepl("unpublished data", .$siteestimate_sources, fixed=T)))
   
   if(sum(is.na(PopSizeCitation_site$kbacitationid)) > 0){
-    stop("Some short citations entered in field SiteEstimate_Sources for species do not match any entries in the CITATIONS tab.")
+    error <- T
+    message <- c(message, "Some short citations entered in field SiteEstimate_Sources for species do not match any entries in the CITATIONS tab.")
   }
   
                     # Reference population size
@@ -2423,7 +2424,8 @@ check_KBADataValidity <- function(final){
     filter(!(is.na(kbacitationid) & grepl("unpublished data", .$referenceestimate_sources, fixed=T)))
   
   if(sum(is.na(PopSizeCitation_ref$kbacitationid)) > 0){
-    stop("Some short citations entered in field ReferenceEstimate_Sources for species do not match any entries in the CITATIONS tab.")
+    error <- T
+    message <- c(message, "Some short citations entered in field ReferenceEstimate_Sources for species do not match any entries in the CITATIONS tab.")
   }
   
               # Ecosystems - TO DO: Update once site and reference extent sources are in separate fields
@@ -2440,7 +2442,8 @@ check_KBADataValidity <- function(final){
     filter(!(is.na(kbacitationid) & grepl("unpublished data", .$siteestimate_sources, fixed=T)))
   
   if(sum(is.na(ExtentCitation_site$kbacitationid)) > 0){
-    stop("Some short citations entered in field 'Data source' for ecosystems do not match any entries in the CITATIONS tab.")
+    error <- T
+    message <- c(message, "Some short citations entered in field 'Data source' for ecosystems do not match any entries in the CITATIONS tab.")
   }
   
   # KBA-EBAR DATABASE
