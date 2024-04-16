@@ -2226,6 +2226,21 @@ check_KBADataValidity <- function(final){
     message <- c(message, "Some triggers are not valid taxonomic concepts.")
   }
   
+        # Check that SIS numbers are correct
+  incorrectSISNumbers <- PF_species %>%
+    left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("national_scientific_name", "speciesid")], by=c("Scientific name"="national_scientific_name")) %>%
+    left_join(., DB_Species[,c("speciesid", "iucn_internaltaxonid")], by="speciesid") %>%
+    mutate(iucn_internaltaxonid = ifelse(is.na(iucn_internaltaxonid), 0, iucn_internaltaxonid),
+           `Red List SIS number` = ifelse(is.na(`Red List SIS number`), 0, `Red List SIS number`)) %>%
+    mutate(CorrectSISID = (iucn_internaltaxonid == `Red List SIS number`)) %>%
+    filter(!CorrectSISID) %>%
+    mutate(iucn_internaltaxonid = ifelse(iucn_internaltaxonid == 0, NA, iucn_internaltaxonid))
+  
+  if(final & (nrow(incorrectSISNumbers) > 0)){
+    error <- T
+    message <- c(message, paste0("Please enter the correct Red List SIS numbers (SPECIES tab) for the following species (SIS numbers in parentheses): ", paste(paste0(paste(incorrectSISNumbers$`Common name`, incorrectSISNumbers$iucn_internaltaxonid, sep=" ("), ")"), collapse="; ")))
+  }
+  
         # Check that the correct conservation statuses are entered
               # Species
   if(nrow(PF_species) > 0){
