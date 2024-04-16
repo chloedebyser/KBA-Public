@@ -2233,12 +2233,12 @@ check_KBADataValidity <- function(final){
     mutate(iucn_internaltaxonid = ifelse(is.na(iucn_internaltaxonid), 0, iucn_internaltaxonid),
            `Red List SIS number` = ifelse(is.na(`Red List SIS number`), 0, `Red List SIS number`)) %>%
     mutate(CorrectSISID = (iucn_internaltaxonid == `Red List SIS number`)) %>%
-    filter(!CorrectSISID) %>%
+    filter(!CorrectSISID & (`KBA level` == "Global")) %>%
     mutate(iucn_internaltaxonid = ifelse(iucn_internaltaxonid == 0, NA, iucn_internaltaxonid))
   
   if(final & (nrow(incorrectSISNumbers) > 0)){
     error <- T
-    message <- c(message, paste0("Please enter the correct Red List SIS numbers (SPECIES tab) for the following species (SIS numbers in parentheses): ", paste(paste0(paste(incorrectSISNumbers$`Common name`, incorrectSISNumbers$iucn_internaltaxonid, sep=" ("), ")"), collapse="; ")))
+    message <- c(message, paste0("Please enter the correct Red List SIS numbers (SPECIES tab) for the following global triggers (SIS numbers in parentheses): ", paste(paste0(paste(incorrectSISNumbers$`Common name`, incorrectSISNumbers$iucn_internaltaxonid, sep=" ("), ")"), collapse="; ")))
   }
   
         # Check that the correct conservation statuses are entered
