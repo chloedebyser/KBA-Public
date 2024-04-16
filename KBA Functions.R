@@ -785,7 +785,11 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
     writeData(multiSiteForm_wb, sheet = "2. Site data", x=PF_site %>% filter(Field == "Country") %>% pull(GENERAL), xy=c(5,5))
     
                 # Purpose of proposal for the site
-    writeData(multiSiteForm_wb, sheet = "2. Site data", x=PF_site %>% filter(Field == "Purpose") %>% pull(GENERAL) %>% substr(., start=4, stop=nchar(.)), xy=c(6,5))
+    if(globalPurpose[it] == "New site"){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="Propose a new KBA that does not intersect any existing KBAs", xy=c(6,5))
+    }else{
+      stop("Purpose of global submission not recognized")
+    }
     
                 # A1
     writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(grepl("gA1", criteriaMet, fixed=T), "Yes", "No"), xy=c(7,5))
