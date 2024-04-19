@@ -1694,6 +1694,7 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("DatasetSource", "Restricted/FeatureServer/5", F),
                      c("InputDataset", "Restricted/FeatureServer/7", F),
                      c("ECCCRangeMap", "Restricted/FeatureServer/2", T),
+                     c("COSEWICRangeMap", "Restricted/FeatureServer/2", T),
                      c("RangeMap", "Restricted/FeatureServer/10", F),
                      c("EmptyRangeMap", "Summary/FeatureServer/8", F),
                      c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T))
@@ -1733,6 +1734,11 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
         filter(datasetsourcename == "ECCC Range Maps") %>%
         pull(datasetsourceid) %>%
         {DB_InputDataset[which(DB_InputDataset$datasetsourceid %in% .), "inputdatasetid"]} %>%
+        {paste0("inputdatasetid IN (", paste(., collapse=","), ")")}
+      
+    }else if(name == "COSEWICRangeMap"){
+      
+      query <- DB_InputDataset[which(DB_InputDataset$datasetsourceid == 1120), "inputdatasetid"] %>%
         {paste0("inputdatasetid IN (", paste(., collapse=","), ")")}
       
     }else if(name == "InputPolygonRelToKBAs"){
