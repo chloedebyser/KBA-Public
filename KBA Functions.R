@@ -1730,11 +1730,7 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
     # Query
     if(name == "ECCCRangeMap"){
       
-      query <- DB_DatasetSource %>%
-        filter(datasetsourcename == "ECCC Range Maps") %>%
-        pull(datasetsourceid) %>%
-        {DB_InputDataset[which(DB_InputDataset$datasetsourceid %in% .), "inputdatasetid"]} %>%
-        {paste0("inputdatasetid IN (", paste(., collapse=","), ")")}
+      query <- "inputdatasetid IN (18612)"
       
     }else if(name == "COSEWICRangeMap"){
       
