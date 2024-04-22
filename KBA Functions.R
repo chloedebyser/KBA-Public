@@ -1654,7 +1654,7 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
 }
 
 #### KBA-EBAR Database - Load data ####
-read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, epsg){
+read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, epsg, rangeMapID, ebarCategories){
 
   # Load password and CRS
   if(!missing(environmentPath)){
@@ -1697,6 +1697,7 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("COSEWICRangeMap", "Restricted/FeatureServer/2", T),
                      c("RangeMap", "Restricted/FeatureServer/10", F),
                      c("EmptyRangeMap", "Summary/FeatureServer/8", F),
+                     c("EBARMap", "EcoshapeRangeMap/FeatureServer/0", T),
                      c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T))
   
   # Only retain datasets that are desired
@@ -1736,6 +1737,10 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
       
       query <- DB_InputDataset[which(DB_InputDataset$datasetsourceid == 1120), "inputdatasetid"] %>%
         {paste0("inputdatasetid IN (", paste(., collapse=","), ")")}
+      
+    }else if(name == "EBARMap"){
+      
+      query <- paste0("(rangemapid = ", rangeMapID, ") AND (presence in (", paste(paste0("'", ebarCategories, "'"), collapse=","), "))")
       
     }else if(name == "InputPolygonRelToKBAs"){
       
@@ -1844,6 +1849,10 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
     
     if("sara_status_date" %in% colnames(data)){
       data %<>% mutate(sara_status_date = as.POSIXct(as.numeric(sara_status_date)/1000, origin = "1970-01-01", tz = "GMT"))
+    }
+    
+    if("maxdate" %in% colnames(data)){
+      data %<>% mutate(maxdate = as.POSIXct(as.numeric(maxdate)/1000, origin = "1970-01-01", tz = "GMT"))
     }
     
     # Format integers
