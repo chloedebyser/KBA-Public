@@ -2429,7 +2429,10 @@ check_KBADataValidity <- function(final){
     filter(!is.na(siteestimate_sources)) %>%
     unnest(siteestimate_sources) %>%
     mutate(siteestimate_sources = trimws(siteestimate_sources)) %>%
+    filter(!grepl("personal communication", siteestimate_sources)) %>%
     filter(!grepl("pers. comm.", siteestimate_sources)) %>%
+    filter(!grepl("communication personnelle", siteestimate_sources)) %>%
+    filter(!grepl("comm. pers.", siteestimate_sources)) %>%
     select(popsizecitationid, siteestimate_sources) %>%
     distinct() %>%
     left_join(., KBACitation[,c("kbacitationid", "shortcitation")], by=c("siteestimate_sources" = "shortcitation")) %>%
@@ -2447,7 +2450,10 @@ check_KBADataValidity <- function(final){
     filter(!is.na(referenceestimate_sources)) %>%
     unnest(referenceestimate_sources) %>%
     mutate(referenceestimate_sources = trimws(referenceestimate_sources)) %>%
+    filter(!grepl("personal communication", referenceestimate_sources)) %>%
     filter(!grepl("pers. comm.", referenceestimate_sources)) %>%
+    filter(!grepl("communication personnelle", referenceestimate_sources)) %>%
+    filter(!grepl("comm. pers.", referenceestimate_sources)) %>%
     select(popsizecitationid, referenceestimate_sources) %>%
     distinct() %>%
     left_join(., KBACitation[,c("kbacitationid", "shortcitation")], by=c("referenceestimate_sources" = "shortcitation")) %>%
@@ -2465,7 +2471,10 @@ check_KBADataValidity <- function(final){
     filter(!is.na(siteestimate_sources)) %>%
     unnest(siteestimate_sources) %>%
     mutate(siteestimate_sources = trimws(siteestimate_sources)) %>%
+    filter(!grepl("personal communication", siteestimate_sources)) %>%
     filter(!grepl("pers. comm.", siteestimate_sources)) %>%
+    filter(!grepl("communication personnelle", siteestimate_sources)) %>%
+    filter(!grepl("comm. pers.", siteestimate_sources)) %>%
     select(extentcitationid, siteestimate_sources) %>%
     distinct() %>%
     left_join(., KBACitation[,c("kbacitationid", "shortcitation")], by=c("siteestimate_sources" = "shortcitation")) %>%
