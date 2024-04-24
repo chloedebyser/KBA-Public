@@ -787,6 +787,10 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
                 # Purpose of proposal for the site
     if(globalPurpose[it] == "New site"){
       writeData(multiSiteForm_wb, sheet = "2. Site data", x="Propose a new KBA that does not intersect any existing KBAs", xy=c(6,5))
+      
+    }else if(globalPurpose[it] == "New biodiversity"){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="Add new qualifying biodiversity element to an existing KBA", xy=c(6,5))
+      
     }else{
       stop("Purpose of global submission not recognized")
     }
