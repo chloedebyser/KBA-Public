@@ -2511,12 +2511,6 @@ check_KBADataValidity <- function(final){
     message <- c(message, "The site boundary needs to be generalized!")
   }
   
-        # Birds Canada site status
-  if(final==T && !is.na(DBS_KBASite$birdscanadasitestatus) && !(DBS_KBASite$birdscanadasitestatus == "Accepted")){
-    error <- T
-    message <- c(message, "Birds Canada Site Status is not set to 'Accepted'")
-  }
-  
         # SpeciesAtSite
   if(length(unique(DBS_SpeciesAtSite$speciesid)) < nrow(DBS_SpeciesAtSite)){
     error <- T
