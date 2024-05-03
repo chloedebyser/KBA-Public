@@ -2671,7 +2671,7 @@ check_KBADataValidity <- function(final){
       as.numeric()/1000000
   }
   
-  if((!SiteArea_PF == formatC(round(SiteArea_DB, 2), format='f', digits=2)) & ((str_sub(formatC(round(SiteArea_DB, 2), format='f', digits=2), start=-1) == "0") & (!SiteArea_PF == formatC(round(SiteArea_DB, 2), format='f', digits=1))) & ((str_sub(formatC(round(SiteArea_DB, 2), format='f', digits=2), start=-2) == "00") & (!SiteArea_PF == formatC(round(SiteArea_DB, 2), format='f', digits=0)))){
+  if(!is.na(SiteArea_PF) && ((!SiteArea_PF == formatC(round(SiteArea_DB, 2), format='f', digits=2)) & ((str_sub(formatC(round(SiteArea_DB, 2), format='f', digits=2), start=-1) == "0") & (!SiteArea_PF == formatC(round(SiteArea_DB, 2), format='f', digits=1))) & ((str_sub(formatC(round(SiteArea_DB, 2), format='f', digits=2), start=-2) == "00") & (!SiteArea_PF == formatC(round(SiteArea_DB, 2), format='f', digits=0))))){
     error <- T
     message <- c(message, "There is a mismatch between the site area provided in the proposal form and that computed from the shape in the database.")
   }
