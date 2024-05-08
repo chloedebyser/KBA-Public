@@ -790,6 +790,9 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
       
     }else if(globalPurpose[it] == "New biodiversity"){
       writeData(multiSiteForm_wb, sheet = "2. Site data", x="Add new qualifying biodiversity element to an existing KBA", xy=c(6,5))
+    
+    }else if(globalPurpose[it] == "Amalgamated KBA"){  
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="Propose a new KBA that amalgamates one or more existing KBAs into a new KBA", xy=c(6,5))
       
     }else{
       stop("Purpose of global submission not recognized")
@@ -826,7 +829,7 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
     writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(grepl("gD3", criteriaMet, fixed=T), "Yes", "No"), xy=c(16,5))
     
                 # Names of existing KBAs intersected that will be replaced by this site.
-    writeData(multiSiteForm_wb, sheet = "2. Site data", x=PF_site %>% filter(Field == "Existing KBAs intersected") %>% pull(GENERAL), xy=c(17,5))
+    writeData(multiSiteForm_wb, sheet = "2. Site data", x=globalKBAReplaced[it], xy=c(17,5))
     
                 # Why existing qualifying element needs to be changed
     writeData(multiSiteForm_wb, sheet = "2. Site data", x=PF_site %>% filter(Field == "Reassessment rationale") %>% pull(GENERAL), xy=c(18,5))
