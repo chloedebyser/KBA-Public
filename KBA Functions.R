@@ -95,7 +95,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
   
         # Handle differing form versions
   if(formVersion < 1.2){
-    proposer<-t
+    
     proposer %<>%
       pivot_wider(., names_from = Field, values_from = Entry) %>%
       mutate(`Other affiliations with a KBA Partner` = ifelse(is.na(`Other affiliations with a KBA Partner`) & (!`KBA Partner represented` == "WCS"), `KBA Partner represented`, `Other affiliations with a KBA Partner`)) %>%
