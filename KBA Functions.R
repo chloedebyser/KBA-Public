@@ -1101,7 +1101,7 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
     additionalBiodiversity %<>% gsub(PF_citations$`Short citation`[citationIndex], PF_citations$`Long citation`[citationIndex], .)
   }
     
-  additionalBiodiversity %<>% paste(., speciesNnotG_text) %>% trimws()
+  additionalBiodiversity %<>% paste(., speciesNnotG_text, ecosystemsNnotG_text) %>% trimws()
     
   writeData(multiSiteForm_wb, sheet = "2. Site data", x=additionalBiodiversity, xy=c(38,5))
     
