@@ -1483,16 +1483,16 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
         writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_ecosystems %>% filter(EcosystemIndex == index) %>% pull(`Status in the IUCN Red List of Ecosystems`), xy=c(50,line))
           
                 # Global extent
-        writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_ecosystems %>% filter(EcosystemIndex == index) %>% pull(`Reference extent (km2)`), xy=c(51,line))
+        writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_ecosystems %>% filter(EcosystemIndex == index) %>% pull(`Reference extent (km2)`) %>% as.numeric(), xy=c(51,line))
           
                 # Extent at site Min)
-        writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_ecosystems %>% filter(EcosystemIndex == index) %>% pull(`Min site extent (km2)`), xy=c(52,line))
+        writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_ecosystems %>% filter(EcosystemIndex == index) %>% pull(`Min site extent (km2)`) %>% as.numeric(), xy=c(52,line))
           
                 # Extent at site (best estimate)
-        writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_ecosystems %>% filter(EcosystemIndex == index) %>% pull(`Best site extent (km2)`), xy=c(53,line))
+        writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_ecosystems %>% filter(EcosystemIndex == index) %>% pull(`Best site extent (km2)`) %>% as.numeric(), xy=c(53,line))
           
                 # Extent at site (Max)
-        writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_ecosystems %>% filter(EcosystemIndex == index) %>% pull(`Max site extent (km2)`), xy=c(54,line))
+        writeData(multiSiteForm_wb, sheet = "3. Biodiversity elements data", x=PF_ecosystems %>% filter(EcosystemIndex == index) %>% pull(`Max site extent (km2)`) %>% as.numeric(), xy=c(54,line))
           
                 # Date of assessment
           
