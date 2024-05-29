@@ -95,15 +95,38 @@ read_KBACanadaProposalForm <- function(formPath, final){
   
         # Handle differing form versions
   if(formVersion < 1.2){
-    
+    proposer<-t
     proposer %<>%
-      mutate(Field = replace(Field, Field == "Name", "Name of proposal development lead"),
-             Field = replace(Field, Field == "Email", "Email of proposal development lead"),
-             Field = replace(Field, Field == "Organization", "Organization of proposal development lead"),
-             Field = replace(Field, Field == "I agree to the data in this form being stored in the World Database of KBAs and used for the purposes of KBA identification and conservation.", "I agree to the data in this form being stored in the Canadian KBA Registry and in the World Database of KBAs, and used for the purposes of KBA identification and conservation."))
-    
-    proposer %<>%
-      add_row(Field = "Name(s) to be displayed publicly", .after = proposer %>% with(which(Field == "Organization of proposal development lead")))
+      pivot_wider(., names_from = Field, values_from = Entry) %>%
+      mutate(`Other affiliations with a KBA Partner` = ifelse(is.na(`Other affiliations with a KBA Partner`) & (!`KBA Partner represented` == "WCS"), `KBA Partner represented`, `Other affiliations with a KBA Partner`)) %>%
+      select(-c(Address, `Country of residence`, `Membership in a KBA National Coordination Group`, `KBA Partner represented`, `Membership in an IUCN Specialist group`, `Name of the IUCN Specialist group`, `Main country of interest`, `Second country of interest`, `Prior experience proposing KBAs`, `Details of prior experience`, `Email (please re-enter)`, `Main taxon or group of interest`, `Second taxon or group of interest`)) %>%
+      mutate(`Name of contact person` = "Ciara Raudsepp-Hearne",
+             Address = "Suite 204, 344 Bloor Street West, Toronto, Ontario, M5S 3A7",
+             `Country of residence` = "Canada",
+             `Email of contact person` = "craudsepp@wcs.org",
+             `Organization of contact person` = "Wildlife Conservation Society Canada",
+             `Membership in a KBA National Coordination Group` = "Canada",
+             `KBA Partner represented` = "WCS",
+             .before = "Name") %>%
+      relocate(`Other affiliations with a KBA Partner`, .before = "Name") %>%
+      mutate(`Membership in an IUCN Specialist group` = NA,
+             `Name of the IUCN Specialist group` = NA,
+             `Main country of interest` = "Canada",
+             `Second country of interest` = NA,
+             `Prior experience proposing KBAs` = "Yes",
+             `Details of prior experience` = "The KBA Canada Secretariat, hosted by Wildlife Conservation Society Canada, Birds Canada, and NatureServe Canada, is coordinating the work of KBA identification in Canada.",
+             .before = "Name") %>%
+      rename(`Name of proposal development lead` = "Name",
+             `Email of proposal development lead` = "Email",
+             `Organization of proposal development lead` = "Organization") %>%
+      mutate(`Organization of proposal development lead` = ifelse(`Organization of proposal development lead` == "WCS Canada", "Wildlife Conservation Society Canada", `Organization of proposal development lead`)) %>%
+      relocate(`Names and affiliations`, .after = "Organization of proposal development lead") %>%
+      mutate(`Name(s) to be displayed publicly` = NA,
+             .after ="Names and affiliations") %>%
+      pivot_longer(everything(),
+                   names_to = "Field",
+                   values_to = "Entry") %>%
+      mutate(Field = replace(Field, Field == "I agree to the data in this form being stored in the World Database of KBAs and used for the purposes of KBA identification and conservation.", "I agree to the data in this form being stored in the Canadian KBA Registry and in the World Database of KBAs, and used for the purposes of KBA identification and conservation."))
   }
   
   # 2. SITE
