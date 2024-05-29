@@ -148,6 +148,11 @@ read_KBACanadaProposalForm <- function(formPath, final){
       add_row(Field = "Disclaimer", .after = site %>% with(which(Field == "Additional biodiversity"))) %>%
       add_row(Field = "Site history", .before = site %>% with(which(Field == "Forest"))) %>%
       add_row(Field = "Customary jurisdiction source", .after = site %>% with(which(Field == "Customary jurisdiction")))
+    
+  }else{
+    
+    site %<>%
+      add_row(Field = "Names and emails", .before = site %>% with(which(Field == "Country")))
   }
   
         # Assessment date
