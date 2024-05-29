@@ -119,7 +119,6 @@ read_KBACanadaProposalForm <- function(formPath, final){
       rename(`Name of proposal development lead` = "Name",
              `Email of proposal development lead` = "Email",
              `Organization of proposal development lead` = "Organization") %>%
-      mutate(`Organization of proposal development lead` = ifelse(`Organization of proposal development lead` == "WCS Canada", "Wildlife Conservation Society Canada", `Organization of proposal development lead`)) %>%
       relocate(`Names and affiliations`, .after = "Organization of proposal development lead") %>%
       mutate(`Name(s) to be displayed publicly` = NA,
              .after ="Names and affiliations") %>%
@@ -128,6 +127,10 @@ read_KBACanadaProposalForm <- function(formPath, final){
                    values_to = "Entry") %>%
       mutate(Field = replace(Field, Field == "I agree to the data in this form being stored in the World Database of KBAs and used for the purposes of KBA identification and conservation.", "I agree to the data in this form being stored in the Canadian KBA Registry and in the World Database of KBAs, and used for the purposes of KBA identification and conservation."))
   }
+  
+        # Spell out "WCS"
+  proposer %<>%
+    mutate(Entry = case_when(Field %in% c("Organization of contact person", "Organization of proposal development lead", "Names and affiliations") ~ gsub("WCS", "Wildlife Conservation Society", Entry, fixed=T), .default=Entry))
   
   # 2. SITE
         # Overall formatting
