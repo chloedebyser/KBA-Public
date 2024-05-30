@@ -2005,6 +2005,10 @@ filter_KBAEBARDatabase <- function(KBASiteIDs, RMUnfilteredDatasets, datasetName
   if(!missing(datasetNames)){
     DBdatasets <- sapply(DBdatasets, function(x) x[1] %in% datasetNames) %>%
       {DBdatasets[which(.)]}
+    
+  }else{
+    DBdatasets <- sapply(DBdatasets, function(x) exists(paste0("DB_", x[1]))) %>%
+      {DBdatasets[which(.)]}
   }
   
   # Set prefixes, if not specified manually
