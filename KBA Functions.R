@@ -2295,14 +2295,6 @@ check_KBADataValidity <- function(final){
     }
   }
   
-        # Check that proposer email is provided twice
-  if(PF_formVersion < 1.2){
-    if(!PF_proposer$Entry[which(PF_proposer$Field == "Email of proposal development lead")] == PF_proposer$Entry[which(PF_proposer$Field == "Email (please re-enter)")]){
-      error <- T
-      message <- c(message, "The proposer email is not correctly entered in one of the required fields.")
-    }
-  }
-  
         # Check that all triggers are valid taxonomic concepts
   SpeciesValidity <- DB_BIOTICS_ELEMENT_NATIONAL %>%
     filter(national_scientific_name %in% PF_species$`Scientific name`) %>%
