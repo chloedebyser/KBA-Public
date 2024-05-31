@@ -1768,7 +1768,6 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("EmptyRangeMap", "Summary/FeatureServer/8", F),
                      c("EBARMap", "EcoshapeRangeMap/FeatureServer/0", T),
                      c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T))
-                     #c("Ecoshape", "Restricted/FeatureServer/3", T))
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
