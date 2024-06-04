@@ -1767,7 +1767,8 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("RangeMap", "Restricted/FeatureServer/10", F),
                      c("EmptyRangeMap", "Summary/FeatureServer/8", F),
                      c("EBARMap", "EcoshapeRangeMap/FeatureServer/0", T),
-                     c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T))
+                     c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T),
+                     c("RangeMapEcoshape", "Restricted/FeatureServer/12", F))
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
@@ -1823,6 +1824,10 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
       
       query <- "rangemapid >= 0"
     
+    }else if(name == "RangeMapEcoshape"){
+      
+      query <- paste0("(rangemapid = ", rangeMapID, ") AND (presence IN (", paste(paste0("'", ebarCategories, "'"), collapse=", "), "))")
+      
     }else{
       
       query <- "OBJECTID >= 0"
