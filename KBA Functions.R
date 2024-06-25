@@ -258,7 +258,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
     arrange(`Scientific name`)
   
         # Handle scientific names of the type "sp. #"
-  species$`Scientific name` <- sapply(species$`Scientific name`, function(x) ifelse(!grepl(" sp. ", x, fixed=T), trimws(gsub(" sp.", " sp. ", `Scientific name`, fixed=T)), x))
+  species$`Scientific name` <- sapply(species$`Scientific name`, function(x) trimws(ifelse(!grepl(" sp. ", x, fixed=T), gsub(" sp.", " sp. ", x, fixed=T), x)))
   
         # Handle differing form versions
   if(formVersion < 1.2){
