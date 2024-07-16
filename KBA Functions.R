@@ -258,7 +258,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
     arrange(`Scientific name`)
   
         # Handle scientific names of the type "sp. #"
-  species$`Scientific name` <- sapply(species$`Scientific name`, function(x) trimws(ifelse(!grepl(" sp. ", x, fixed=T), gsub(" sp.", " sp. ", x, fixed=T), x)))
+  species$`Scientific name` <- sapply(species$`Scientific name`, function(x) trimws(ifelse(!grepl(" sp. ", x, fixed=T), gsub(" sp.", " sp. ", x, fixed=T), x))) %>% as.character()
   
         # Handle differing form versions
   if(formVersion < 1.2){
@@ -3047,16 +3047,24 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
       rename(kba_group_translated = "KBA_Group_ES")
   }
   
-  # Get prepositions, for FR only
-  if(language == "FR"){
-    biodivelements %<>% mutate(preposition = sapply(kba_group_translated, function(x) ifelse(substr(x, start=1, stop=1) %in% c("A", "E", "I", "O", "U", "Y"), "d'", "de ")))
-    
-  }else{
-    biodivelements %<>% mutate(preposition = NA)
-  }
-  
   # Sort groups by alphabetical order, for consistency
-  biodivelements %<>% arrange(level, criteriamet, kba_group_translated)
+  biodivelements %<>%
+    arrange(level, criteriamet, kba_group_translated) %>%
+    mutate(kba_group_translated = tolower(kba_group_translated))
+  
+  # Move sensitive species to the bottom
+  sensitiveelements <- biodivelements %>%
+    filter(grepl("sensi", kba_group_translated))
+  
+  nonsensitiveelements <- biodivelements %>%
+    filter(!grepl("sensi", kba_group_translated))
+  
+  biodivelements <- bind_rows(nonsensitiveelements, sensitiveelements)
+  
+  # Add criterion header
+  biodivelements %<>%
+    left_join(., criterionHeader[,c("Criterion", paste0("Criterion_", language))], by=c("criteriamet" = "Criterion")) %>%
+    rename(CriterionHeader = paste0("Criterion_", language))
   
   # Initialize final text
   finalText <- c()
@@ -3071,41 +3079,13 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
       biodivelements_criterion <- biodivelements %>%
         filter((level == global_national) & (criteriamet == criterion))
       
-      # Get the gender of the concatenated group
-      if(language %in% c("FR", "ES")){
-        
-        gender <- KBAgroups %>%
-          filter(KBA_Group_EN %in% biodivelements_criterion$kba_group) %>%
-          pull(paste0("Gender_", language))
-        
-        gender <- ifelse("M" %in% gender, "M", "F") # If there is a masculine noun then the group is masculine
-      }
-      
-      # Get header
-      headerLabel <- paste0("Header_", language, ifelse(language %in% c("FR", "ES"), paste0("_", gender), ""))
-      header <- criterionHeader %>%
-        filter(Criterion == criterion) %>%
-        pull(headerLabel)
-      
-      # Concatenate taxonomic groups
-      if(grepl("#", header, fixed=T)){
-        
-        groups <- biodivelements_criterion %>%
-          mutate(withpreposition = paste0(preposition, kba_group_translated)) %>%
-          pull(withpreposition) %>%
-          pasteEnumeration(string=.)
-        
-        header <- gsub("#", "", header, fixed=T)
-        
-      }else{
-        groups <- pasteEnumeration(string=biodivelements_criterion$kba_group_translated)
-      }
-      
-      # Insert groups into header
-      header <- gsub("*", groups, header, fixed=T)
+      # Get criterion header
+      criterionHeader <- biodivelements_criterion %>%
+        pull(CriterionHeader) %>%
+        unique()
       
       # Final text
-      finalText <- c(finalText, paste0(str_to_sentence(header), " (", criterion, ")"))
+      finalText <- c(finalText, paste0(criterion, " - ", criterionHeader, " (", paste(biodivelements_criterion$kba_group_translated, collapse=", "), ")"))
     }
   
     # Concatenate text for that level
