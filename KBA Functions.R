@@ -1,6 +1,6 @@
 #### Identification of Canadian KBAs
 #### Wildlife Conservation Society - 2021-2023
-#### Script by Chloé Debyser
+#### Script by Chloé Debyser and Zachary Moore
 
 #### KEY FUNCTIONS
 
@@ -3237,4 +3237,88 @@ specialCharacters <- function(x){
   
   # Return result
   return(x)
+}
+
+
+#### map_KBASite function for 1. Pre Steering Committee Code ####
+map_KBASite <- function(DBS_KBASite,pathway,map_service,map_type) {
+  
+  # DBS_KBASite = KBA Shapefile (mutated so that name is NNAME and is 'valid')
+  # pathway = filename (within the desired folder, doesn't need .pdf)
+  # map_service = map_service from basemaps::get_maptypes()
+  # map_type = map_type from basemaps::get_maptypes()
+  
+  #Extract bounding box for the KBA
+  bb <- st_bbox(st_transform(DBS_KBASite,crs = 3857)) 
+  
+  #Extract width, length, and area for determining orientation and expansion
+  length <- bb$ymax - bb$ymin
+  width <- bb$xmax - bb$xmin
+  area <- as.numeric(st_area(DBS_KBASite))
+  
+  #Determining buffer based on area (arbitrary numbers that looked good with example sites)
+  buffer <- ifelse (area > 10^6, 10000, 2000)
+  
+  #Expanding bounding box by arbitrary buffer, otherwise just maps right to edge
+  bb[1:2]<-bb[1:2] - buffer
+  bb[3:4]<-bb[3:4] + buffer
+  
+  #Start writing PDF file
+  pdf(paste0(pathway,".pdf"),width = ifelse(length>width,8.5,11), height = ifelse(length>width,11,8.5))
+  
+  #Make Map for Site
+  KBASiteMap <- DBS_KBASite %>%
+    st_transform(crs = 3857) %>% # coordinate system needed for base map function
+    
+    #start plot
+    ggplot()+
+    
+    #basemap (from basemaps::)
+    basemap_gglayer(ext = bb,map_service = map_service, map_type = map_type)+
+    scale_fill_identity() +
+    
+    #annotations (scale and north arrow) (from ggspatial::)
+    annotation_scale(aes(location = "br"), pad_x = unit(10,"cm"), pad_y = unit(0.1,"cm")) + 
+    annotation_north_arrow(aes(location = "br"), pad_x = unit(7.5,"cm"), pad_y = unit(0.1,"cm")) +
+    
+    #polygon
+    geom_sf(linewidth=1, show.legend = FALSE, aes(col="pink",fill=NA)) + #can show legend instead of ggtitle if desired
+    
+    #title 
+    ggtitle(paste(DBS_KBASite$NName, "KBA")) +
+    
+    #limits, labels, and theme
+    ylim(c(bb$ymin,bb$ymax)) + 
+    xlim(c(bb$xmin,bb$xmax)) + 
+    xlab("") + ylab("") +
+    theme_classic() +
+    theme(
+      plot.title = element_text(size=18,hjust=0.5),
+      axis.line = element_blank()
+    )
+  
+  #Create inset map
+  KBAInset <- 
+    ggplot(DBS_KBASite) + 
+    geom_prov(colour="black") +
+    scale_fill_manual(guide = "none", values=rep("white",13))+
+    geom_sf(linewidth=4, show.legend = FALSE, aes(col="pink",fill=NA))+
+    theme(
+      panel.border = element_rect(colour = "black",fill=NA),
+      panel.background = element_blank(),
+      panel.grid = element_blank(),
+      axis.ticks = element_blank(),
+      axis.text = element_blank()
+    )
+  
+  print(
+    ggdraw(KBASiteMap) +
+      draw_plot(KBAInset,
+                height=0.3,
+                width=0.3,
+                x=0.7,y=0.01)
+  )
+  
+  #End PDF file
+  dev.off()
 }
