@@ -3241,7 +3241,7 @@ specialCharacters <- function(x){
 
 
 #### map_KBASite function for 1. Pre Steering Committee Code ####
-map_KBASite <- function(DBS_KBASite,pathway,map_service,map_type) {
+map_KBASite <- function(DBS_KBASite,pathway,map_service,map_type,cities) {
   
   # DBS_KBASite = KBA Shapefile (mutated so that name is NNAME and is 'valid')
   # pathway = filename (within the desired folder, doesn't need .pdf)
@@ -3262,6 +3262,26 @@ map_KBASite <- function(DBS_KBASite,pathway,map_service,map_type) {
   #Expanding bounding box by arbitrary buffer, otherwise just maps right to edge
   bb[1:2]<-bb[1:2] - buffer
   bb[3:4]<-bb[3:4] + buffer
+  
+  #Get cities located within the bounding box
+  if(cities){
+    
+    # Convert bounding box to lat/lon
+    bb_WGS <- st_as_sfc(bb) %>%
+      st_transform(crs = 4326) %>%
+      st_bbox() %>%
+      paste(., collapse=",")
+    
+    # Get largest cities within the bounding box
+    citiesData <- GET(paste0("https://geogratis.gc.ca/services/geoname/en/geonames.geojson?category=O&bbox=", bb_WGS)) %>%
+      content(., "text") %>%
+      geojson_sf() %>%
+      filter(concise %in% c("CITY", "TOWN", "VILG", "HAM", "UNP")) %>%
+      mutate(concise = factor(concise, levels = c("CITY", "TOWN", "VILG", "HAM", "UNP"))) %>%
+      arrange(concise) %>%
+      .[1:3,] %>%
+      drop_na()
+  }
   
   #Start writing PDF file
   pdf(paste0(pathway,".pdf"),width = ifelse(length>width,8.5,11), height = ifelse(length>width,11,8.5))
@@ -3296,6 +3316,14 @@ map_KBASite <- function(DBS_KBASite,pathway,map_service,map_type) {
       plot.title = element_text(size=18,hjust=0.5),
       axis.line = element_blank()
     )
+  
+  #Add cities
+  if(cities){
+    KBASiteMap <- KBASiteMap +
+      
+      geom_sf(data=citiesData, col="lightgrey")+
+      geom_text_repel(data = citiesData, aes(label = name, geometry = geometry), stat = "sf_coordinates", min.segment.length = 10, label.size = NA, colour = "lightgrey")
+  }
   
   #Create inset map
   KBAInset <- 
