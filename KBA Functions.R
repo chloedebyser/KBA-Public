@@ -3269,18 +3269,19 @@ map_KBASite <- function(DBS_KBASite,pathway,map_service,map_type,cities) {
     # Convert bounding box to lat/lon
     bb_WGS <- st_as_sfc(bb) %>%
       st_transform(crs = 4326) %>%
-      st_bbox() %>%
-      paste(., collapse=",")
+      st_bbox()
     
     # Get largest cities within the bounding box
-    citiesData <- GET(paste0("https://geogratis.gc.ca/services/geoname/en/geonames.geojson?category=O&bbox=", bb_WGS)) %>%
+    citiesData <- GET(paste0("https://geogratis.gc.ca/services/geoname/en/geonames.geojson?category=O&bbox=", paste(bb_WGS, collapse=","))) %>%
       content(., "text") %>%
       geojson_sf() %>%
+      st_centroid() %>%
+      st_crop(bb_WGS) %>%
       filter(concise %in% c("CITY", "TOWN", "VILG", "HAM", "UNP")) %>%
       mutate(concise = factor(concise, levels = c("CITY", "TOWN", "VILG", "HAM", "UNP"))) %>%
-      arrange(concise) %>%
+      arrange(concise, desc(relevance)) %>%
       .[1:3,] %>%
-      drop_na()
+      drop_na(name)
   }
   
   #Start writing PDF file
@@ -3322,7 +3323,7 @@ map_KBASite <- function(DBS_KBASite,pathway,map_service,map_type,cities) {
     KBASiteMap <- KBASiteMap +
       
       geom_sf(data=citiesData, col="lightgrey")+
-      geom_text_repel(data = citiesData, aes(label = name, geometry = geometry), stat = "sf_coordinates", min.segment.length = 10, label.size = NA, colour = "lightgrey")
+      geom_text_repel(data = bind_rows(citiesData, DBS_KBASite), aes(label = name, geometry = geometry, fontface = "bold"), stat = "sf_coordinates", min.segment.length = 10, colour = "lightgrey", box.padding = 0.5, label.padding = 1)
   }
   
   #Create inset map
