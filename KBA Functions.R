@@ -2928,7 +2928,7 @@ check_KBADataValidity <- function(final){
     if(nrow(PF_species) > 0){
       
       biodivElementDist_form <- PF_species %>%
-        filter(display_biodivelementdist == "Yes") %>%
+        filter(!display_biodivelementdist == "No internal boundary provided") %>%
         pull(`Common name`)
       
       biodivElementDist_DB <- DBS_BiodivElementDistribution %>%
