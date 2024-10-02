@@ -252,9 +252,8 @@ read_KBACanadaProposalForm <- function(formPath, final){
   species %<>%
     .[2:nrow(.),] %>%
     filter(!is.na(`Common name`)) %>%
-    mutate(`Common name` = trimws(`Common name`),
-           `Scientific name` = trimws(`Scientific name`),
-           `Derivation of best estimate` = ifelse(`Derivation of best estimate` == "Other (please add further details in column AA)", "Other", `Derivation of best estimate`)) %>%
+    mutate_if(is.character, trimws) %>%
+    mutate(`Derivation of best estimate` = ifelse(`Derivation of best estimate` == "Other (please add further details in column AA)", "Other", `Derivation of best estimate`)) %>%
     arrange(`Scientific name`)
   
         # Handle scientific names of the type "sp. #"
