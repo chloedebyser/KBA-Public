@@ -852,6 +852,9 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
   }else if(globalPurpose[it] == "New biodiversity"){
     writeData(multiSiteForm_wb, sheet = "2. Site data", x="Add new qualifying biodiversity element to an existing KBA", xy=c(6,5))
   
+  }else if(globalPurpose[it] == "Reassessed biodiversity"){
+    writeData(multiSiteForm_wb, sheet = "2. Site data", x="Re-assess existing qualifying biodiversity elements", xy=c(6,5))
+    
   }else if(globalPurpose[it] == "Amalgamated KBA"){  
     writeData(multiSiteForm_wb, sheet = "2. Site data", x="Propose a new KBA that amalgamates one or more existing KBAs into a new KBA", xy=c(6,5))
       
