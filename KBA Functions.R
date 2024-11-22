@@ -1725,7 +1725,7 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
 }
 
 #### KBA-EBAR Database - Load data ####
-read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, epsg, rangeMapID, ebarCategories){
+read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, epsg, rangeMapID, ebarCategories, speciesids){
 
   # Load password and CRS
   if(!missing(environmentPath)){
@@ -1770,7 +1770,11 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("EmptyRangeMap", "Summary/FeatureServer/8", F),
                      c("EBARMap", "EcoshapeRangeMap/FeatureServer/0", T),
                      c("InputPolygonRelToKBAs", "Restricted/FeatureServer/2", T),
-                     c("RangeMapEcoshape", "Restricted/FeatureServer/12", F))
+                     c("RangeMapEcoshape", "Restricted/FeatureServer/12", F),
+                     c("InputPolygon", "Restricted/FeatureServer/2", T),
+                     c("InputLine", "Restricted/FeatureServer/1", T),
+                     c("InputPoint", "Restricted/FeatureServer/0", T),
+                     c("EOPolygon", "EO_Polygons/FeatureServer/0", T))
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
@@ -1829,6 +1833,10 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
     }else if(name == "RangeMapEcoshape"){
       
       query <- paste0("(rangemapid = ", rangeMapID, ") AND (presence IN (", paste(paste0("'", ebarCategories, "'"), collapse=", "), "))")
+      
+    }else if(name %in% c("InputPolygon", "InputLine", "InputPoint", "EOPolygon")){
+      
+      query <- paste0("speciesid IN (", paste(speciesids, collapse=","), ")")
       
     }else{
       
