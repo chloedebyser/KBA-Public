@@ -489,7 +489,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
 }
 
 #### KBA Canada Proposal Form - Convert to Global Multi-Site Form ####
-convert_toGlobalMultiSiteForm <- function(templatePath){
+convert_toGlobalMultiSiteForm <- function(templatePath, reviewedProposal){
   
   # Check that there are global criteria met
   criteriaMet <- PF_home %>%
@@ -846,22 +846,24 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
   writeData(multiSiteForm_wb, sheet = "2. Site data", x=PF_site %>% filter(Field == "Country") %>% pull(GENERAL), xy=c(5,5))
     
                 # Purpose of proposal for the site
-  if(globalPurpose[it] == "New site"){
-    writeData(multiSiteForm_wb, sheet = "2. Site data", x="Propose a new KBA that does not intersect any existing KBAs", xy=c(6,5))
-      
-  }else if(globalPurpose[it] == "New biodiversity"){
-    writeData(multiSiteForm_wb, sheet = "2. Site data", x="Add new qualifying biodiversity element to an existing KBA", xy=c(6,5))
-  
-  }else if(globalPurpose[it] == "Reassessed biodiversity"){
-    writeData(multiSiteForm_wb, sheet = "2. Site data", x="Re-assess existing qualifying biodiversity elements", xy=c(6,5))
+  if(!reviewedProposal){
+    if(globalPurpose[it] == "New site"){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="Propose a new KBA that does not intersect any existing KBAs", xy=c(6,5))
+        
+    }else if(globalPurpose[it] == "New biodiversity"){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="Add new qualifying biodiversity element to an existing KBA", xy=c(6,5))
     
-  }else if(globalPurpose[it] == "Amalgamated KBA"){  
-    writeData(multiSiteForm_wb, sheet = "2. Site data", x="Propose a new KBA that amalgamates one or more existing KBAs into a new KBA", xy=c(6,5))
+    }else if(globalPurpose[it] == "Reassessed biodiversity"){
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="Re-assess existing qualifying biodiversity elements", xy=c(6,5))
       
-  }else{
-    stop("Purpose of global submission not recognized")
+    }else if(globalPurpose[it] == "Amalgamated KBA"){  
+      writeData(multiSiteForm_wb, sheet = "2. Site data", x="Propose a new KBA that amalgamates one or more existing KBAs into a new KBA", xy=c(6,5))
+        
+    }else{
+      stop("Purpose of global submission not recognized")
+    }
   }
-    
+  
                 # A1
   writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(grepl("gA1", criteriaMet, fixed=T), "Yes", "No"), xy=c(7,5))
     
@@ -893,7 +895,9 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
   writeData(multiSiteForm_wb, sheet = "2. Site data", x=ifelse(grepl("gD3", criteriaMet, fixed=T), "Yes", "No"), xy=c(16,5))
     
                 # Names of existing KBAs intersected that will be replaced by this site.
-  writeData(multiSiteForm_wb, sheet = "2. Site data", x=globalKBAReplaced[it], xy=c(17,5))
+  if(!reviewedProposal){
+    writeData(multiSiteForm_wb, sheet = "2. Site data", x=globalKBAReplaced[it], xy=c(17,5))
+  }
     
                 # Why existing qualifying element needs to be changed
   writeData(multiSiteForm_wb, sheet = "2. Site data", x=PF_site %>% filter(Field == "Reassessment rationale") %>% pull(GENERAL), xy=c(18,5))
@@ -1028,6 +1032,7 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
   writeData(multiSiteForm_wb, sheet = "2. Site data", x=DBS_KBASite$protectedareas_en, xy=c(36,5))
     
                 # Relationship with protected area boundaries
+  if(!reviewedProposal){
   PARelationship <- c("")
     
   if(DBS_KBASite$percentprotected == 0){
@@ -1091,7 +1096,8 @@ convert_toGlobalMultiSiteForm <- function(templatePath){
   }
     
   writeData(multiSiteForm_wb, sheet = "2. Site data", x=PARelationship, xy=c(37,5))
-    
+  }
+  
                 # Additional biodiversity values at site
   additionalBiodiversity <- PF_site %>%
     filter(Field == "Additional biodiversity") %>%
