@@ -253,7 +253,8 @@ read_KBACanadaProposalForm <- function(formPath, final){
     .[2:nrow(.),] %>%
     filter(!is.na(`Common name`)) %>%
     mutate_if(is.character, trimws) %>%
-    mutate(`Derivation of best estimate` = ifelse(`Derivation of best estimate` == "Other (please add further details in column AA)", "Other", `Derivation of best estimate`)) %>%
+    mutate(`Derivation of best estimate` = ifelse(`Derivation of best estimate` == "Other (please add further details in column AA)", "Other", `Derivation of best estimate`),
+           `Red List SIS number` = as.integer(`Red List SIS number`)) %>%
     arrange(`Scientific name`)
   
         # Handle scientific names of the type "sp. #"
