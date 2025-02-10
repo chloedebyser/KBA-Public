@@ -490,7 +490,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
 }
 
 #### KBA Canada Proposal Form - Convert to Global Multi-Site Form ####
-convert_toGlobalMultiSiteForm <- function(templatePath, reviewedProposal){
+convert_toGlobalMultiSiteForm <- function(templatePath, reviewedProposal, speciesOrder){
   
   # Check that there are global criteria met
   criteriaMet <- PF_home %>%
@@ -848,6 +848,7 @@ convert_toGlobalMultiSiteForm <- function(templatePath, reviewedProposal){
     
                 # Purpose of proposal for the site
   if(!reviewedProposal){
+    
     if(globalPurpose[it] == "New site"){
       writeData(multiSiteForm_wb, sheet = "2. Site data", x="Propose a new KBA that does not intersect any existing KBAs", xy=c(6,5))
         
@@ -1034,69 +1035,69 @@ convert_toGlobalMultiSiteForm <- function(templatePath, reviewedProposal){
     
                 # Relationship with protected area boundaries
   if(!reviewedProposal){
-  PARelationship <- c("")
-    
-  if(DBS_KBASite$percentprotected == 0){
-    PARelationship <- "KBA boundary does not intersect any PA boundaries"
-  
-  }else{
+    PARelationship <- c("")
       
-    PA_intersection <- st_intersection(DBS_KBASite, cpcad) %>%
-      st_make_valid() %>%
-      select(NAME_E) %>%
-      mutate(Areakm2 = as.numeric(st_area(.))/1000000,
-             Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
-      filter(Percent >= 0.1)
+    if(DBS_KBASite$percentprotected == 0){
+      PARelationship <- "KBA boundary does not intersect any PA boundaries"
+    
+    }else{
         
-    if(nrow(PA_intersection) > 0){
-        
-      for(PA in 1:nrow(PA_intersection)){
+      PA_intersection <- st_intersection(DBS_KBASite, cpcad) %>%
+        st_make_valid() %>%
+        select(NAME_E) %>%
+        mutate(Areakm2 = as.numeric(st_area(.))/1000000,
+               Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
+        filter(Percent >= 0.1)
           
-        PA_name <- PA_intersection$NAME_E[PA]
+      if(nrow(PA_intersection) > 0){
           
-        PANotSite <- cpcad %>%
-          filter(NAME_E == PA_name) %>%
-          st_difference(., DBS_KBASite) %>%
-          select(NAME_E) %>%
-          mutate(Areakm2 = as.numeric(st_area(.))/1000000,
-                 Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
-          filter(Percent >= 0.1)
-        
-        SiteNotPA <- cpcad %>%
-          filter(NAME_E == PA_name) %>%
-          st_difference(DBS_KBASite, .) %>%
-          select(NAME_E) %>%
-          mutate(Areakm2 = as.numeric(st_area(.))/1000000,
-                 Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
-          filter(Percent >= 0.1)
-        
-        if(nrow(PANotSite) + nrow(SiteNotPA) == 0){
-          PARelationship <- c(PARelationship, "Identical")
+        for(PA in 1:nrow(PA_intersection)){
+            
+          PA_name <- PA_intersection$NAME_E[PA]
+            
+          PANotSite <- cpcad %>%
+            filter(NAME_E == PA_name) %>%
+            st_difference(., DBS_KBASite) %>%
+            select(NAME_E) %>%
+            mutate(Areakm2 = as.numeric(st_area(.))/1000000,
+                   Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
+            filter(Percent >= 0.1)
           
-        }else if(nrow(PANotSite) == 0){
-          PARelationship <- c(PARelationship, "Contains")
+          SiteNotPA <- cpcad %>%
+            filter(NAME_E == PA_name) %>%
+            st_difference(DBS_KBASite, .) %>%
+            select(NAME_E) %>%
+            mutate(Areakm2 = as.numeric(st_area(.))/1000000,
+                   Percent = round(100*Areakm2/DBS_KBASite$areakm2, 1)) %>%
+            filter(Percent >= 0.1)
+          
+          if(nrow(PANotSite) + nrow(SiteNotPA) == 0){
+            PARelationship <- c(PARelationship, "Identical")
+            
+          }else if(nrow(PANotSite) == 0){
+            PARelationship <- c(PARelationship, "Contains")
+            
+          }else{
+            PARelationship <- c(PARelationship, "Overlaps")
+          }
+        }
+          
+        if("Identical" %in% PARelationship){
+          PARelationship <- "KBA boundary exactly follows a PA boundary"
+          
+        }else if("Overlaps" %in% PARelationship){
+          PARelationship <- "KBA overlaps one or more PA boundaries"
           
         }else{
-          PARelationship <- c(PARelationship, "Overlaps")
+          PARelationship <- "KBA contains one or more PA boundaries"
         }
-      }
-        
-      if("Identical" %in% PARelationship){
-        PARelationship <- "KBA boundary exactly follows a PA boundary"
-        
-      }else if("Overlaps" %in% PARelationship){
-        PARelationship <- "KBA overlaps one or more PA boundaries"
         
       }else{
-        PARelationship <- "KBA contains one or more PA boundaries"
+        stop("Percent protected > 0 and no CPCAD intersection")
       }
-      
-    }else{
-      stop("Percent protected > 0 and no CPCAD intersection")
     }
-  }
-    
-  writeData(multiSiteForm_wb, sheet = "2. Site data", x=PARelationship, xy=c(37,5))
+      
+    writeData(multiSiteForm_wb, sheet = "2. Site data", x=PARelationship, xy=c(37,5))
   }
   
                 # Additional biodiversity values at site
@@ -1155,6 +1156,40 @@ convert_toGlobalMultiSiteForm <- function(templatePath, reviewedProposal){
   writeData(multiSiteForm_wb, sheet = "2. Site data", x=suggestedReviewers, xy=c(45,5))
     
           # 3. Biodiversity elements data
+                # If reviewed proposal, determine order in which to enter species data
+  if(reviewedProposal){
+    
+    speciesOrder %<>%
+      mutate(order = paste(speciesid, assessmentParameter, sep="_"))
+    
+    PF_species %<>%
+      left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "element_code")], by=c("NatureServe Element Code" = "element_code")) %>%
+      mutate(order = paste(speciesid, `Assessment parameter`, sep="_")) 
+    
+    if(sum(!speciesOrder$order %in% PF_species$order) > 0){
+      
+      commentsInRemovedRows <- speciesOrder %>%
+        filter(!order %in% PF_species$order) %>%
+        .[,5:22]
+      
+      if(sum(is.na(commentsInRemovedRows)) == nrow(commentsInRemovedRows)*18){
+        
+        speciesOrder %<>%
+          filter(order %in% PF_species$order)
+        
+      }else{
+        stop("Some species entries with comments not recognized")
+      }
+      
+    }else if(sum(!PF_species$order %in% speciesOrder$order) > 0){
+      stop("Some species entries not recognized")
+    }
+    
+    PF_species %<>%
+      arrange(match(order, speciesOrder$order)) %>%
+      select(-c(speciesid, order))
+  }
+  
   elementIndices <- c(PF_species$SpeciesIndex, PF_ecosystems$EcosystemIndex, PF_ecologicalIntegrity$EcoregionIndex)
     
   if(length(elementIndices) > 0){
@@ -2291,7 +2326,7 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 #### Full Site Proposal - Check data validity ####
 # Add check that threat levels 1, 2 and 3 are coherent
 # Warn if there are other overlapping sites (that don't have the same site code or name)
-check_KBADataValidity <- function(final){
+check_KBADataValidity <- function(final, postAcceptance){
   
   # Starting parameters
   error <- F
@@ -2317,15 +2352,18 @@ check_KBADataValidity <- function(final){
   }
   
         # Check that all triggers are valid taxonomic concepts
-  SpeciesValidity <- DB_BIOTICS_ELEMENT_NATIONAL %>%
-    filter(national_scientific_name %in% PF_species$`Scientific name`) %>%
-    unique() %>%
-    mutate(IsValid = case_when(inactive_ind == "Y" ~ F, is.na(bcd_style_n_rank) ~ T, bcd_style_n_rank == "NSYN" ~ F, .default = T)) %>%
-    select(national_scientific_name, IsValid)
-  
-  if(sum(!SpeciesValidity$IsValid) > 0){
-    error <- T
-    message <- c(message, "Some triggers are not valid taxonomic concepts.")
+  if(!postAcceptance){
+    SpeciesValidity <- DB_BIOTICS_ELEMENT_NATIONAL %>%
+      filter(national_scientific_name %in% PF_species$`Scientific name`) %>%
+      unique() %>%
+      mutate(IsValid = case_when(inactive_ind == "Y" ~ F, is.na(bcd_style_n_rank) ~ T, bcd_style_n_rank == "NSYN" ~ F, .default = T)) %>%
+      select(national_scientific_name, IsValid) %>%
+      filter(!IsValid)
+    
+    if(nrow(SpeciesValidity) > 0){
+      error <- T
+      message <- c(message, paste0("The following triggers are not valid taxonomic concepts: ", paste(SpeciesValidity$national_scientific_name, collapse=", ")))
+    }
   }
   
         # Check that SIS numbers are correct
@@ -2344,74 +2382,77 @@ check_KBADataValidity <- function(final){
   }
   
         # Check that the correct conservation statuses are entered
+  if(!postAcceptance){
+    
               # Species
-  if(nrow(PF_species) > 0){
+    if(nrow(PF_species) > 0){
     
                     # If the species has a conservation status of level 1 or 2 (whether in the master species list or in the proposal form)
-    conservationStatuses <- PF_species %>%
-      left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "element_code")], by=c("NatureServe Element Code" = "element_code")) %>%
-      left_join(., DB_Species[,c("speciesid", "kbatrigger_g_a1_status", "kbatrigger_n_a1_status")], by="speciesid") %>%
-      mutate(Status = case_when(Status == "Vulnerable (VU)" ~ "VU",
-                                Status == "Endangered (EN)" ~ "EN",
-                                Status == "Critically Endangered (CR)" ~ "CR",
-                                Status == "Critically Endangered (Possibly Extinct)" ~ "CR",
-                                Status %in% c("E", "T", "GH", "G1", "G2", "TH", "T1", "T2", "NH", "N1", "N2") ~ Status,
-                                .default=NA)) %>%
-      rowwise() %>%
-      mutate(CorrectGStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_g_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_g_a1_status, fixed=T)),
-             CorrectNStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_n_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_n_a1_status, fixed=T))) %>%
-      mutate(CorrectGStatus = ifelse(is.na(CorrectGStatus),
-                                     ifelse(is.na(kbatrigger_g_a1_status), T, F),
-                                     CorrectGStatus),
-             CorrectNStatus = ifelse(is.na(CorrectNStatus),
-                                     ifelse(is.na(kbatrigger_n_a1_status), T, F),
-                                     CorrectNStatus)) %>%
-      mutate(CorrectGStatus = case_when((!`KBA level` == "Global") | (!`KBA criterion` == "A1 or B1") ~ T, .default = CorrectGStatus),
-             CorrectNStatus = case_when(!`KBA level` == "National" | (!`KBA criterion` == "A1 or B1") ~ T, .default = CorrectNStatus))
-    
-    if((sum(!conservationStatuses$CorrectGStatus) + sum(!conservationStatuses$CorrectNStatus)) > 0){
-      error <- T
-      wrongConservationStatus <- conservationStatuses %>%
-        filter(!CorrectGStatus | !CorrectNStatus) %>%
-        pull(`Common name`) %>%
-        paste(., collapse="; ")
-      message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
-    }
+      conservationStatuses <- PF_species %>%
+        left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "element_code")], by=c("NatureServe Element Code" = "element_code")) %>%
+        left_join(., DB_Species[,c("speciesid", "kbatrigger_g_a1_status", "kbatrigger_n_a1_status")], by="speciesid") %>%
+        mutate(Status = case_when(Status == "Vulnerable (VU)" ~ "VU",
+                                  Status == "Endangered (EN)" ~ "EN",
+                                  Status == "Critically Endangered (CR)" ~ "CR",
+                                  Status == "Critically Endangered (Possibly Extinct)" ~ "CR",
+                                  Status %in% c("E", "T", "GH", "G1", "G2", "TH", "T1", "T2", "NH", "N1", "N2") ~ Status,
+                                  .default=NA)) %>%
+        rowwise() %>%
+        mutate(CorrectGStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_g_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_g_a1_status, fixed=T)),
+               CorrectNStatus = ifelse(is.na(Status), ifelse(is.na(kbatrigger_n_a1_status), T, F), grepl(paste0(Status, " (", `Status assessment agency`, ")"), kbatrigger_n_a1_status, fixed=T))) %>%
+        mutate(CorrectGStatus = ifelse(is.na(CorrectGStatus),
+                                       ifelse(is.na(kbatrigger_g_a1_status), T, F),
+                                       CorrectGStatus),
+               CorrectNStatus = ifelse(is.na(CorrectNStatus),
+                                       ifelse(is.na(kbatrigger_n_a1_status), T, F),
+                                       CorrectNStatus)) %>%
+        mutate(CorrectGStatus = case_when((!`KBA level` == "Global") | (!`KBA criterion` == "A1 or B1") ~ T, .default = CorrectGStatus),
+               CorrectNStatus = case_when(!`KBA level` == "National" | (!`KBA criterion` == "A1 or B1") ~ T, .default = CorrectNStatus))
+      
+      if((sum(!conservationStatuses$CorrectGStatus) + sum(!conservationStatuses$CorrectNStatus)) > 0){
+        error <- T
+        wrongConservationStatus <- conservationStatuses %>%
+          filter(!CorrectGStatus | !CorrectNStatus) %>%
+          pull(`Common name`) %>%
+          paste(., collapse="; ")
+        message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
+      }
     
                     # Otherwise
-    conservationStatuses <- PF_species %>%
-      left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "element_code", "cosewic_status")], by=c("NatureServe Element Code" = "element_code")) %>%
-      left_join(., DB_Species[,c("speciesid", "iucn_cd", "precautionary_g_rank", "precautionary_n_rank")], by="speciesid") %>%
-      mutate(Status = case_when(Status %in% c("Vulnerable (VU)", "Endangered (EN)", "Critically Endangered (CR)", "Critically Endangered (Possibly Extinct)", "E", "T", "GH", "G1", "G2", "TH", "T1", "T2", "NH", "N1", "N2") ~ NA,
-                                Status == "Near Threatened (NT)" ~ "NT",
-                                Status == "Least Concern (LC)" ~ "LC",
-                                Status == "Data Deficient (DD)" ~ "DD",
-                                .default=Status),
-             CorrectStatus = ifelse(!is.na(Status),
-                                     ifelse(`Status assessment agency` == "IUCN",
-                                            ifelse(Status == iucn_cd,
-                                                   T,
-                                                   F),
-                                            ifelse(`Status assessment agency` == "COSEWIC",
-                                                   ifelse(Status == cosewic_status,
-                                                          T,
-                                                          F),
-                                                   ifelse(Status %in% c(precautionary_g_rank, precautionary_n_rank),
-                                                          T,
-                                                          F))),
-                                     T))
-    
-    if(sum(!conservationStatuses$CorrectStatus) > 0){
-      error <- T
-      wrongConservationStatus <- conservationStatuses %>%
-        filter(!CorrectStatus) %>%
-        pull(`Common name`) %>%
-        paste(., collapse="; ")
-      message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
+      conservationStatuses <- PF_species %>%
+        left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "element_code", "cosewic_status")], by=c("NatureServe Element Code" = "element_code")) %>%
+        left_join(., DB_Species[,c("speciesid", "iucn_cd", "precautionary_g_rank", "precautionary_n_rank")], by="speciesid") %>%
+        mutate(Status = case_when(Status %in% c("Vulnerable (VU)", "Endangered (EN)", "Critically Endangered (CR)", "Critically Endangered (Possibly Extinct)", "E", "T", "GH", "G1", "G2", "TH", "T1", "T2", "NH", "N1", "N2") ~ NA,
+                                  Status == "Near Threatened (NT)" ~ "NT",
+                                  Status == "Least Concern (LC)" ~ "LC",
+                                  Status == "Data Deficient (DD)" ~ "DD",
+                                  .default=Status),
+               CorrectStatus = ifelse(!is.na(Status),
+                                       ifelse(`Status assessment agency` == "IUCN",
+                                              ifelse(Status == iucn_cd,
+                                                     T,
+                                                     F),
+                                              ifelse(`Status assessment agency` == "COSEWIC",
+                                                     ifelse(Status == cosewic_status,
+                                                            T,
+                                                            F),
+                                                     ifelse(Status %in% c(precautionary_g_rank, precautionary_n_rank),
+                                                            T,
+                                                            F))),
+                                       T))
+      
+      if(sum(!conservationStatuses$CorrectStatus) > 0){
+        error <- T
+        wrongConservationStatus <- conservationStatuses %>%
+          filter(!CorrectStatus) %>%
+          pull(`Common name`) %>%
+          paste(., collapse="; ")
+        message <- c(message, paste("There are incorrect conservation statuses provided for:", wrongConservationStatus))
+      }
     }
-  }
   
               # Ecosystems - TO ADD
+  }
   
         # Check that level 2 threats are provided
   if(sum(is.na(PF_threats$`Level 2`)) > 0){
