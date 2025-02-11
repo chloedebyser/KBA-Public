@@ -109,7 +109,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
              `KBA Partner represented` = "WCS",
              .before = "Name") %>%
       relocate(`Other affiliations with a KBA Partner`, .before = "Name") %>%
-      mutate(`Membership in an IUCN Specialist group` = NA,
+      mutate(`Membership in an IUCN Specialist group` = "No",
              `Name of the IUCN Specialist group` = NA,
              `Main country of interest` = "Canada",
              `Second country of interest` = NA,
@@ -811,7 +811,7 @@ convert_toGlobalMultiSiteForm <- function(templatePath, reviewedProposal, specie
   writeData(multiSiteForm_wb, sheet = "1. Proposer", x=date, xy=c(2,24))
     
                 # Is this a proposal or a nomination?:
-  writeData(multiSiteForm_wb, sheet = "1. Proposer", x=ifelse(nVersions[it]==0, "Proposal (before review)", "Nomination (following review)"), xy=c(2,25))
+  writeData(multiSiteForm_wb, sheet = "1. Proposer", x=ifelse(nVersion==0, "Proposal (before review)", "Nomination (following review)"), xy=c(2,25))
     
                 # I agree to the data in this form being stored in the WDKBA and used for the purposes of KBA identification and conservation
   writeData(multiSiteForm_wb, sheet = "1. Proposer", x=PF_proposer %>% filter(Field == "I agree to the data in this form being stored in the Canadian KBA Registry and in the World Database of KBAs, and used for the purposes of KBA identification and conservation.") %>% pull(Entry), xy=c(2,30))
