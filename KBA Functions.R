@@ -109,7 +109,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
              `KBA Partner represented` = "WCS",
              .before = "Name") %>%
       relocate(`Other affiliations with a KBA Partner`, .before = "Name") %>%
-      mutate(`Membership in an IUCN Specialist group` = "No",
+      mutate(`Membership in an IUCN Specialist group` = NA,
              `Name of the IUCN Specialist group` = NA,
              `Main country of interest` = "Canada",
              `Second country of interest` = NA,
