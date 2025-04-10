@@ -2339,6 +2339,41 @@ check_KBADataValidity <- function(final, postAcceptance){
     message <- c(message, "There is no national name entered in the proposal form.")
   }
   
+        # Check that a global name is provided, if site is global
+  if(!PF_KBALevel == "National"){
+    
+    globalName <- PF_site %>%
+      filter(Field == "International name") %>%
+      pull(GENERAL)
+    
+    if(is.na(globalName)){
+      error <- T
+      message <- c(message, "This is a global KBA, yet there is no international name entered in the proposal form.")
+    }
+  }
+  
+        # Check that a French name is provided, if and only if the site is in NB
+  Jurisdiction_PF <- PF_site %>%
+    filter(Field == "Province or Territory") %>%
+    pull(GENERAL) %>%
+    trimws()
+  
+  frenchName <- PF_site %>%
+    filter(Field == "National name") %>%
+    pull(FRENCH)
+  
+  if(Jurisdiction_PF == "New Brunswick"){
+    if(is.na(frenchName)){
+      error <- T
+      message <- c(message, "The site is in New Brunswick and is missing a Francophone national name.")
+    }
+  }else{
+    if(!is.na(frenchName)){
+      error <- T
+      message <- c(message, "A Francophone national name is provided even though the site is not in New Brunswick.")
+    }
+  }
+  
         # Check that a site code is provided
   if(final){
     SiteCode_PF <- PF_site %>%
@@ -2768,11 +2803,6 @@ check_KBADataValidity <- function(final, postAcceptance){
         # Jurisdiction
   Jurisdiction_DB <- DBS_KBASite %>%
     pull(jurisdiction_en)
-  
-  Jurisdiction_PF <- PF_site %>%
-    filter(Field == "Province or Territory") %>%
-    pull(GENERAL) %>%
-    trimws()
   
   if(!Jurisdiction_DB == Jurisdiction_PF){
     error <- T
