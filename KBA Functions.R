@@ -2326,7 +2326,7 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 #### Full Site Proposal - Check data validity ####
 # Add check that threat levels 1, 2 and 3 are coherent
 # Warn if there are other overlapping sites (that don't have the same site code or name)
-check_KBADataValidity <- function(final, postAcceptance){
+check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   
   # Starting parameters
   error <- F
@@ -2353,24 +2353,26 @@ check_KBADataValidity <- function(final, postAcceptance){
   }
   
         # Check that a French name is provided, if and only if the site is in NB
-  Jurisdiction_PF <- PF_site %>%
-    filter(Field == "Province or Territory") %>%
-    pull(GENERAL) %>%
-    trimws()
-  
-  frenchName <- PF_site %>%
-    filter(Field == "National name") %>%
-    pull(FRENCH)
-  
-  if(Jurisdiction_PF == "New Brunswick"){
-    if(is.na(frenchName)){
-      error <- T
-      message <- c(message, "The site is in New Brunswick and is missing a Francophone national name.")
-    }
-  }else{
-    if(!is.na(frenchName)){
-      error <- T
-      message <- c(message, "A Francophone national name is provided even though the site is not in New Brunswick.")
+  if(postTranslation){
+    Jurisdiction_PF <- PF_site %>%
+      filter(Field == "Province or Territory") %>%
+      pull(GENERAL) %>%
+      trimws()
+    
+    frenchName <- PF_site %>%
+      filter(Field == "National name") %>%
+      pull(FRENCH)
+    
+    if(Jurisdiction_PF == "New Brunswick"){
+      if(is.na(frenchName)){
+        error <- T
+        message <- c(message, "The site is in New Brunswick and is missing a Francophone national name.")
+      }
+    }else{
+      if(!is.na(frenchName)){
+        error <- T
+        message <- c(message, "A Francophone national name is provided even though the site is not in New Brunswick.")
+      }
     }
   }
   
@@ -2387,7 +2389,7 @@ check_KBADataValidity <- function(final, postAcceptance){
   }
   
         # Check that all triggers are valid taxonomic concepts
-  if(!postAcceptance){
+  if(!priorAcceptance){
     SpeciesValidity <- DB_BIOTICS_ELEMENT_NATIONAL %>%
       filter(national_scientific_name %in% PF_species$`Scientific name`) %>%
       unique() %>%
@@ -2417,7 +2419,7 @@ check_KBADataValidity <- function(final, postAcceptance){
   }
   
         # Check that the correct conservation statuses are entered
-  if(!postAcceptance){
+  if(!priorAcceptance){
     
               # Species
     if(nrow(PF_species) > 0){
