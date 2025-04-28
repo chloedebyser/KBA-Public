@@ -2353,12 +2353,12 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   }
   
         # Check that a French name is provided, if and only if the site is in NB
+  Jurisdiction_PF <- PF_site %>%
+    filter(Field == "Province or Territory") %>%
+    pull(GENERAL) %>%
+    trimws()
+  
   if(postTranslation){
-    Jurisdiction_PF <- PF_site %>%
-      filter(Field == "Province or Territory") %>%
-      pull(GENERAL) %>%
-      trimws()
-    
     frenchName <- PF_site %>%
       filter(Field == "National name") %>%
       pull(FRENCH)
