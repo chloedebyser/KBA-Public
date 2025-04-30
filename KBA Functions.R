@@ -76,7 +76,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
   KBALevel <- home %>%
     filter(X3 == "Criteria met") %>%
     pull(X4) %>%
-    {ifelse(grepl("g", ., T), ifelse(grepl("n", ., T), "Global and National", "Global"), "National")}
+    {ifelse(grepl("g", ., T), "Global", "National")}
   
   # KBA criteria
   if(formVersion < 1.2){
