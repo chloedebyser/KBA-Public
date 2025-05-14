@@ -1801,7 +1801,7 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("OriginalDelineation", "KBA_View/FeatureServer/3", T),
                      c("BiodivElementDistribution", "KBA_View/FeatureServer/4", T),
                      c("KBACustomPolygon", "KBA_View/FeatureServer/1", T),
-                     c("KBAInputPolygon", "KBA_View/FeatureServer/6", T),
+                     c("KBAInputPolygon", "KBA_View/FeatureServer/6", F),
                      c("KBAAcceptedSite", "KBA_Accepted_Sites/FeatureServer/0", T),
                      c("KBAInProgressSite", "KBA_InProgress_Sites/FeatureServer/0", T),
                      c("DatasetSource", "Restricted/FeatureServer/5", F),
