@@ -2683,6 +2683,13 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   if(DBS_KBASite$boundarygeneralization == "2"){
     error <- T
     message <- c(message, "The site boundary needs to be generalized!")
+    
+  }else if(DBS_KBASite$boundarygeneralization == "3"){
+    
+    if(!exists("DBS_OriginalDelineation")){
+      error <- T
+      message <- c(message, "The site boundary is generalized, but there are no OriginalDelineation records in the database")
+    }
   }
   
         # SpeciesAtSite
