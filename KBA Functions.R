@@ -3145,18 +3145,21 @@ summary_KBAcriteria <-  function(prefix, language, referencePath){
   }
   
   # Sort groups by alphabetical order, for consistency
+        # Move sensitive species to the bottom of the group list
+  kba_groups_translated <- biodivelements %>%
+    mutate(kba_group_translated = tolower(kba_group_translated)) %>%
+    pull(kba_group_translated) %>%
+    unique() %>%
+    sort()
+  
+  if(sum(grepl("sensi", kba_groups_translated)) > 0){
+    kba_groups_translated <- c(kba_groups_translated[which(!grepl("sensi", kba_groups_translated))], kba_groups_translated[which(grepl("sensi", kba_groups_translated))])
+  }
+  
+        # Sort by level, criteria met, and kba_group
   biodivelements %<>%
-    arrange(level, criteriamet, kba_group_translated) %>%
-    mutate(kba_group_translated = tolower(kba_group_translated))
-  
-  # Move sensitive species to the bottom
-  sensitiveelements <- biodivelements %>%
-    filter(grepl("sensi", kba_group_translated))
-  
-  nonsensitiveelements <- biodivelements %>%
-    filter(!grepl("sensi", kba_group_translated))
-  
-  biodivelements <- bind_rows(nonsensitiveelements, sensitiveelements)
+    mutate(kba_group_translated = tolower(kba_group_translated)) %>%
+    arrange(level, criteriamet, factor(kba_group_translated, levels=kba_groups_translated))
   
   # Add criterion header
   biodivelements %<>%
