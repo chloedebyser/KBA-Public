@@ -3451,3 +3451,37 @@ map_KBASite <- function(DBS_KBASite,pathway,map_service,map_type,cities) {
   #End PDF file
   dev.off()
 }
+
+#### Get taxonomic level (species or infraspecies) based on scientific name ####
+nameLevel <- function(name){
+  
+  # Analyse text string
+  nSpaces <- gregexpr(" ", name, fixed=T)[[1]] %>%
+    as.integer() %>%
+    {!. == -1} %>%
+    sum()
+  
+  nCf <- gregexpr(" cf. ", name, fixed=T)[[1]] %>%
+    as.integer() %>%
+    {!. == -1} %>%
+    sum()
+  
+  nSp <- gregexpr(" sp. ", name, fixed=T)[[1]] %>%
+    as.integer() %>%
+    {!. == -1} %>%
+    sum()
+  
+  nX <- gregexpr(" x ", name, fixed=T)[[1]] %>%
+    as.integer() %>%
+    {!. == -1} %>%
+    sum()
+  
+  nSpecial <- nCf + nSp + nX
+  
+  # Compute level
+  level <- ifelse((nSpaces == 1) | (nSpaces == 1+nSpecial) | ((nX > 0) & (nSpaces == 2+nSpecial)),
+                  "Species",
+                  "Infraspecies")
+  
+  return(level)
+}
