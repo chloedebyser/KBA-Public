@@ -2324,8 +2324,6 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 }
 
 #### Full Site Proposal - Check data validity ####
-# Add check that threat levels 1, 2 and 3 are coherent
-# Warn if there are other overlapping sites (that don't have the same site code or name)
 check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   
   # Starting parameters
@@ -2495,6 +2493,26 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   if(sum(is.na(PF_threats$`Level 2`)) > 0){
     error <- T
     message <- c(message, "In the THREATS tab, some level 2 information is missing.")
+  }
+  
+        # Check that threat levels are congruent with one another
+  for(threatRow in 1:nrow(PF_threats)){
+    
+    # Get levels
+    l1 <- PF_threats[threatRow, "Level 1"] %>% sub(" .*", "", .)
+    l2 <- PF_threats[threatRow, "Level 2"] %>% sub(" .*", "", .)
+    l3 <- PF_threats[threatRow, "Level 3"] %>% sub(" .*", "", .)
+    
+    # Check congruence
+    if(!is.na(l2) && !grepl(l1, l2, fixed=T)){
+      error <- T
+      message <- c(message, "In the THREATS tab, some level 2 information does not match level 1 information.")
+    }
+    
+    if(!is.na(l3) && !grepl(l2, l3, fixed=T)){
+      error <- T
+      message <- c(message, "In the THREATS tab, some level 3 information does not match level 2 information.")
+    }
   }
   
         # Check that threats are correctly linked to triggers, where applicable
@@ -2677,6 +2695,26 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
       error <- T
       message <- c(message, "There are several records with that Site Code and Version in the database")
     }
+  }
+  
+        # Warn if there are any overlaps with accepted sites
+              # Binary vector of overlaps
+  overlaps <- DB_KBASite %>%
+    filter(sitestatus %in% c(6,7,8)) %>% # Only keep accepted sites
+    filter(!sitecode == DBS_KBASite$sitecode) %>% # Exclude sites with the same site code
+    st_intersection(., DBS_KBASite) %>%
+    st_drop_geometry() %>%
+    select(sitecode, nationalname) %>%
+    mutate(label = paste0(nationalname, " (", sitecode, ")")) %>%
+    pull(label) %>%
+    suppressWarnings()
+  
+              # Produce warning
+  if(length(overlaps) > 0){
+    warning <- paste0("WARNING - Site overlaps accepted KBA(s): ", paste0(overlaps, collapse="; "))
+    
+  }else{
+    warning <- NULL
   }
   
         # Boundary generalization
@@ -3052,7 +3090,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   }
   
   # Return end parameters
-  return(list(error, message))
+  return(list(error, message, warning))
 }
 
 #### Full Site Proposal - Summarize KBA criteria met ####
