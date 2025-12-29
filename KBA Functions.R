@@ -2489,11 +2489,36 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
               # Ecosystems - TO ADD
   }
   
+        # Check that conservation action section is filled out
+  if(sum(PF_actions$Ongoing == "TRUE") == 0){
+    error <- T
+    message <- c(message, "No `Ongoing` Conservation Actions entered.")
+  }
+  
+  if(sum(PF_actions$Needed == "TRUE") == 0){
+    error <- T
+    message <- c(message, "No `Needed` Conservation Actions entered.")
+  }
+  
+  actionsNone <- PF_actions %>% filter(Action == "None")
+  actionsNotNone <- PF_actions %>% filter(!Action == "None")
+  
+  if((actionsNone$Ongoing == "TRUE") & (sum(actionsNotNone$Ongoing == "TRUE") > 0)){
+    error <- T
+    message <- c(message, "`Ongoing` Conservation Actions include 'None' and other actions.")
+  }
+  
+  if((actionsNone$Needed == "TRUE") & (sum(actionsNotNone$Needed == "TRUE") > 0)){
+    error <- T
+    message <- c(message, "`Needed` Conservation Actions include 'None' and other actions.")
+  }
+  
         # Check that level 2 threats are provided
   if(sum(is.na(PF_threats$`Level 2`)) > 0){
     error <- T
     message <- c(message, "In the THREATS tab, some level 2 information is missing.")
   }
+  rm(actionsNone, actionsNotNone)
   
         # Check that threat levels are congruent with one another
   for(threatRow in 1:nrow(PF_threats)){
