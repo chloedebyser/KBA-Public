@@ -2490,27 +2490,30 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   }
   
         # Check that conservation action section is filled out
-  if(sum(PF_actions$Ongoing == "TRUE") == 0){
-    error <- T
-    message <- c(message, "No `Ongoing` Conservation Actions entered.")
-  }
-  
-  if(sum(PF_actions$Needed == "TRUE") == 0){
-    error <- T
-    message <- c(message, "No `Needed` Conservation Actions entered.")
-  }
-  
-  actionsNone <- PF_actions %>% filter(Action == "None")
-  actionsNotNone <- PF_actions %>% filter(!Action == "None")
-  
-  if((actionsNone$Ongoing == "TRUE") & (sum(actionsNotNone$Ongoing == "TRUE") > 0)){
-    error <- T
-    message <- c(message, "`Ongoing` Conservation Actions include 'None' and other actions.")
-  }
-  
-  if((actionsNone$Needed == "TRUE") & (sum(actionsNotNone$Needed == "TRUE") > 0)){
-    error <- T
-    message <- c(message, "`Needed` Conservation Actions include 'None' and other actions.")
+  if(!priorAcceptance){
+    
+    if(sum(PF_actions$Ongoing == "TRUE") == 0){
+      error <- T
+      message <- c(message, "No `Ongoing` Conservation Actions entered.")
+    }
+    
+    if(sum(PF_actions$Needed == "TRUE") == 0){
+      error <- T
+      message <- c(message, "No `Needed` Conservation Actions entered.")
+    }
+    
+    actionsNone <- PF_actions %>% filter(Action == "None")
+    actionsNotNone <- PF_actions %>% filter(!Action == "None")
+    
+    if((actionsNone$Ongoing == "TRUE") & (sum(actionsNotNone$Ongoing == "TRUE") > 0)){
+      error <- T
+      message <- c(message, "`Ongoing` Conservation Actions include 'None' and other actions.")
+    }
+    
+    if((actionsNone$Needed == "TRUE") & (sum(actionsNotNone$Needed == "TRUE") > 0)){
+      error <- T
+      message <- c(message, "`Needed` Conservation Actions include 'None' and other actions.")
+    }
   }
   
         # Check that level 2 threats are provided
