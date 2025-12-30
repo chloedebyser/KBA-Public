@@ -2514,6 +2514,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
       error <- T
       message <- c(message, "`Needed` Conservation Actions include 'None' and other actions.")
     }
+    rm(actionsNone, actionsNotNone)
   }
   
         # Check that level 2 threats are provided
@@ -2521,7 +2522,6 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
     error <- T
     message <- c(message, "In the THREATS tab, some level 2 information is missing.")
   }
-  rm(actionsNone, actionsNotNone)
   
         # Check that threat levels are congruent with one another
   for(threatRow in 1:nrow(PF_threats)){
