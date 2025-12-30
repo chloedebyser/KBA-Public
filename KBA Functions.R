@@ -2927,34 +2927,40 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
         # Species
               # Based on NATIONAL_SCIENTIFIC_NAME
                     # All species
-  SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
-    filter(national_scientific_name %in% PF_species$`Scientific name`) %>%
-    pull(speciesid) %>%
-    unique()
-  
-  SpeciesIDs_DB <- DBS_SpeciesAtSite %>%
-    pull(speciesid) %>%
-    unique()
-  
-  if((!sum(SpeciesIDs_PF %in% SpeciesIDs_DB)==length(SpeciesIDs_PF)) | (!sum(SpeciesIDs_DB %in% SpeciesIDs_PF)==length(SpeciesIDs_DB))){
-    error <- T
-    message <- c(message, "There is a mismatch between the species in SpeciesAtSite and the species in the proposal form (based on NATIONAL_SCIENTIFIC_NAME).")
+  if(!priorAcceptance){
+    
+    SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
+      filter(national_scientific_name %in% PF_species$`Scientific name`) %>%
+      pull(speciesid) %>%
+      unique()
+    
+    SpeciesIDs_DB <- DBS_SpeciesAtSite %>%
+      pull(speciesid) %>%
+      unique()
+    
+    if((!sum(SpeciesIDs_PF %in% SpeciesIDs_DB)==length(SpeciesIDs_PF)) | (!sum(SpeciesIDs_DB %in% SpeciesIDs_PF)==length(SpeciesIDs_DB))){
+      error <- T
+      message <- c(message, "There is a mismatch between the species in SpeciesAtSite and the species in the proposal form (based on NATIONAL_SCIENTIFIC_NAME).")
+    }
   }
   
                     # Species meeting KBA criteria
-  SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
-    filter(national_scientific_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Scientific name"]) %>%
-    pull(speciesid) %>%
-    unique()
-  
-  SpeciesIDs_DB <- DBS_SpeciesAtSite %>%
-    filter(meetscriteria == "Y") %>%
-    pull(speciesid) %>%
-    unique()
-  
-  if((!sum(SpeciesIDs_PF %in% SpeciesIDs_DB)==length(SpeciesIDs_PF)) | (!sum(SpeciesIDs_DB %in% SpeciesIDs_PF)==length(SpeciesIDs_DB))){
-    error <- T
-    message <- c(message, "There is a mismatch between the species that meet criteria in SpeciesAtSite and those that meet criteria in the proposal form (based on NATIONAL_SCIENTIFIC_NAME).")
+  if(!priorAcceptance){
+    
+    SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
+      filter(national_scientific_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Scientific name"]) %>%
+      pull(speciesid) %>%
+      unique()
+    
+    SpeciesIDs_DB <- DBS_SpeciesAtSite %>%
+      filter(meetscriteria == "Y") %>%
+      pull(speciesid) %>%
+      unique()
+    
+    if((!sum(SpeciesIDs_PF %in% SpeciesIDs_DB)==length(SpeciesIDs_PF)) | (!sum(SpeciesIDs_DB %in% SpeciesIDs_PF)==length(SpeciesIDs_DB))){
+      error <- T
+      message <- c(message, "There is a mismatch between the species that meet criteria in SpeciesAtSite and those that meet criteria in the proposal form (based on NATIONAL_SCIENTIFIC_NAME).")
+    }
   }
   
               # Based on ELEMENT_CODE
@@ -2991,48 +2997,54 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   
               # Based on NATIONAL_ENGL_NAME
                     # All species
-  SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
-    filter(national_engl_name %in% PF_species$`Common name`) %>%
-    pull(speciesid) %>%
-    unique()
-  
-  if(length(SpeciesIDs_PF) > length(unique(PF_species$`Common name`))){
+  if(!priorAcceptance){
+    
     SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
-      filter((national_engl_name %in% PF_species$`Common name`) & (national_scientific_name %in% PF_species$`Scientific name`)) %>%
+      filter(national_engl_name %in% PF_species$`Common name`) %>%
       pull(speciesid) %>%
       unique()
-  }
-  
-  SpeciesIDs_DB <- DBS_SpeciesAtSite %>%
-    pull(speciesid) %>%
-    unique()
-  
-  if((!sum(SpeciesIDs_PF %in% SpeciesIDs_DB)==length(SpeciesIDs_PF)) | (!sum(SpeciesIDs_DB %in% SpeciesIDs_PF)==length(SpeciesIDs_DB))){
-    error <- T
-    message <- c(message, "There is a mismatch between the species in SpeciesAtSite and the species in the proposal form (based on NATIONAL_ENGL_NAME).")
+    
+    if(length(SpeciesIDs_PF) > length(unique(PF_species$`Common name`))){
+      SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
+        filter((national_engl_name %in% PF_species$`Common name`) & (national_scientific_name %in% PF_species$`Scientific name`)) %>%
+        pull(speciesid) %>%
+        unique()
+    }
+    
+    SpeciesIDs_DB <- DBS_SpeciesAtSite %>%
+      pull(speciesid) %>%
+      unique()
+    
+    if((!sum(SpeciesIDs_PF %in% SpeciesIDs_DB)==length(SpeciesIDs_PF)) | (!sum(SpeciesIDs_DB %in% SpeciesIDs_PF)==length(SpeciesIDs_DB))){
+      error <- T
+      message <- c(message, "There is a mismatch between the species in SpeciesAtSite and the species in the proposal form (based on NATIONAL_ENGL_NAME).")
+    }
   }
   
                     # Species meeting KBA criteria
-  SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
-    filter(national_engl_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Common name"]) %>%
-    pull(speciesid) %>%
-    unique()
-  
-  if(length(SpeciesIDs_PF) > length(unique(PF_species[which(!is.na(PF_species$`Criteria met`)),"Common name"]))){
+  if(!priorAcceptance){
+    
     SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
-      filter((national_engl_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Common name"]) & (national_scientific_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Scientific name"])) %>%
+      filter(national_engl_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Common name"]) %>%
       pull(speciesid) %>%
       unique()
-  }
-  
-  SpeciesIDs_DB <- DBS_SpeciesAtSite %>%
-    filter(meetscriteria == "Y") %>%
-    pull(speciesid) %>%
-    unique()
-  
-  if((!sum(SpeciesIDs_PF %in% SpeciesIDs_DB)==length(SpeciesIDs_PF)) | (!sum(SpeciesIDs_DB %in% SpeciesIDs_PF)==length(SpeciesIDs_DB))){
-    error <- T
-    message <- c(message, "There is a mismatch between the species that meet criteria in SpeciesAtSite and those that meet criteria in the proposal form (based on NATIONAL_ENGL_NAME).")
+    
+    if(length(SpeciesIDs_PF) > length(unique(PF_species[which(!is.na(PF_species$`Criteria met`)),"Common name"]))){
+      SpeciesIDs_PF <- DB_BIOTICS_ELEMENT_NATIONAL %>%
+        filter((national_engl_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Common name"]) & (national_scientific_name %in% PF_species[which(!is.na(PF_species$`Criteria met`)), "Scientific name"])) %>%
+        pull(speciesid) %>%
+        unique()
+    }
+    
+    SpeciesIDs_DB <- DBS_SpeciesAtSite %>%
+      filter(meetscriteria == "Y") %>%
+      pull(speciesid) %>%
+      unique()
+    
+    if((!sum(SpeciesIDs_PF %in% SpeciesIDs_DB)==length(SpeciesIDs_PF)) | (!sum(SpeciesIDs_DB %in% SpeciesIDs_PF)==length(SpeciesIDs_DB))){
+      error <- T
+      message <- c(message, "There is a mismatch between the species that meet criteria in SpeciesAtSite and those that meet criteria in the proposal form (based on NATIONAL_ENGL_NAME).")
+    }
   }
   
         # Ecosystems
