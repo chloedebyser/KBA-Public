@@ -2731,7 +2731,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
     st_intersection(., DBS_KBASite) %>%
     mutate(overlaparea = st_area(.)) %>%
     st_drop_geometry() %>%
-    filter(overlaparea > units::set_units(0.01, m^2)) %>% # Exclude overlaps less than 0.01 m2
+    filter(overlaparea > units::set_units(0.1, m^2)) %>% # Exclude overlaps less than 0.1 m2
     select(sitecode, nationalname) %>%
     mutate(label = paste0(nationalname, " (", sitecode, ")")) %>%
     pull(label) %>%
