@@ -2756,6 +2756,11 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
       error <- T
       message <- c(message, "The site boundary is generalized, but there are no OriginalDelineation records in the database")
     }
+    
+  }else if(exists("DBS_OriginalDelineation")){
+    
+      error <- T
+      message <- c(message, "There is an OriginalDelineation record even though the site boundary doesn't require generalization")
   }
   
         # SpeciesAtSite
