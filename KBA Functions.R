@@ -2747,7 +2747,6 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   
         # Boundary generalization
   if(nrow(DBS_OriginalDelineation) > 1){
-    
     error <- T
     message <- c(message, "There are multiple OriginalDelineation records in the database")
   }
@@ -2764,7 +2763,6 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
     }
     
   }else if(exists("DBS_OriginalDelineation")){
-    
       error <- T
       message <- c(message, "There is an OriginalDelineation record even though the site boundary doesn't require generalization")
   }
