@@ -2519,22 +2519,25 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   }
   
         # Check that threat levels are congruent with one another
-  for(threatRow in 1:nrow(PF_threats)){
+  if(!PF_noThreats){
     
-    # Get levels
-    l1 <- PF_threats[threatRow, "Level 1"] %>% sub(" .*", "", .)
-    l2 <- PF_threats[threatRow, "Level 2"] %>% sub(" .*", "", .)
-    l3 <- PF_threats[threatRow, "Level 3"] %>% sub(" .*", "", .)
-    
-    # Check congruence
-    if(!is.na(l2) && !grepl(l1, l2, fixed=T)){
-      error <- T
-      message <- c(message, "In the THREATS tab, some level 2 information does not match level 1 information.")
-    }
-    
-    if(!is.na(l3) && !grepl(l2, l3, fixed=T)){
-      error <- T
-      message <- c(message, "In the THREATS tab, some level 3 information does not match level 2 information.")
+    for(threatRow in 1:nrow(PF_threats)){
+      
+      # Get levels
+      l1 <- PF_threats[threatRow, "Level 1"] %>% sub(" .*", "", .)
+      l2 <- PF_threats[threatRow, "Level 2"] %>% sub(" .*", "", .)
+      l3 <- PF_threats[threatRow, "Level 3"] %>% sub(" .*", "", .)
+      
+      # Check congruence
+      if(!is.na(l2) && !grepl(l1, l2, fixed=T)){
+        error <- T
+        message <- c(message, "In the THREATS tab, some level 2 information does not match level 1 information.")
+      }
+      
+      if(!is.na(l3) && !grepl(l2, l3, fixed=T)){
+        error <- T
+        message <- c(message, "In the THREATS tab, some level 3 information does not match level 2 information.")
+      }
     }
   }
   
