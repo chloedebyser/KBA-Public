@@ -192,12 +192,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
         # Site version
   if(formVersion < 1.2){
     
-    siteVersion <- site %>%
-      filter(Field == "Purpose") %>%
-      pull(GENERAL) %>%
-      trimws() %>%
-      {ifelse(. == "1. Propose a new KBA that does not intersect any existing KBAs", 1, NA)} %>%
-      as.integer()
+    siteVersion <- NA
     
   }else{
     
