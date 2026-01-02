@@ -2398,7 +2398,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   
         # Check that SIS numbers are correct
   incorrectSISNumbers <- PF_species %>%
-    left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("national_scientific_name", "speciesid")], by=c("Scientific name"="national_scientific_name")) %>%
+    left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("element_code", "speciesid")], by=c("NatureServe Element Code"="element_code")) %>%
     left_join(., DB_Species[,c("speciesid", "iucn_internaltaxonid")], by="speciesid") %>%
     mutate(iucn_internaltaxonid = ifelse(is.na(iucn_internaltaxonid), 0, iucn_internaltaxonid),
            `Red List SIS number` = ifelse(is.na(`Red List SIS number`), 0, `Red List SIS number`)) %>%
