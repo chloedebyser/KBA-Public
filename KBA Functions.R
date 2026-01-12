@@ -2622,6 +2622,27 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
     message <- c(message, "In the THREATS tab, some ecosystems could not be matched to an ecosystem in the ECOSYSTEMS tab.")
   }
   
+        # Check that citation URLs are valid
+  urls <- PF_citations %>%
+    pull(URL) %>%
+    na.omit() %>%
+    as.vector()
+  
+  urlsNotValid <- sapply(urls, function(x) !is_valid_url(x)) %>%
+    {urls[which(.)]}
+  
+  urlsValid <- urls[which(!urls %in% urlsNotValid)]
+  
+  urlsNotLive <- sapply(urlsValid, function(x) http_error(x, user_agent("httr"))) %>%
+    {urlsValid[which(.)]}
+  
+  urlsWithPb <- c(urlsNotValid, urlsNotLive)
+  
+  if(length(urlsWithPb) > 0){
+    error <- T
+    message <- c(message, paste("In the CITATIONS tab, the following URLs are not found:", paste(urlsWithPb, collapse = ", ")))
+  }
+  
         # Check that short citations match information in the CITATIONS tab
               # Format CITATIONS tab
   KBACitation <- PF_citations %>%
