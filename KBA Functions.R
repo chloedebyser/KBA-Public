@@ -2633,7 +2633,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   
   urlsValid <- urls[which(!urls %in% urlsNotValid)]
   
-  urlsLive <- sapply(urlsValid, function(x) !http_error(x) || !http_error(x, user_agent("httr"))) %>%
+  urlsLive <- sapply(urlsValid, function(x) !http_error(x) || !http_error(x, user_agent("httr")) || status_code(GET(x)) == 200) %>%
     {urlsValid[which(.)]}
   
   urlsNotLive <- urlsValid[which(!urlsValid %in% urlsLive)]
