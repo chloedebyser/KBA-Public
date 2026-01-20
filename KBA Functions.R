@@ -2319,7 +2319,7 @@ primaryKey_KBAEBARDataset <- function(dataset, id){
 }
 
 #### Full Site Proposal - Check data validity ####
-check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
+check_KBADataValidity <- function(final, postTranslation, priorAcceptance, checkURLs){
   
   # Starting parameters
   error <- F
@@ -2623,26 +2623,29 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance){
   }
   
         # Check that citation URLs are valid
-  urls <- PF_citations %>%
-    pull(URL) %>%
-    na.omit() %>%
-    as.vector()
-  
-  urlsNotValid <- sapply(urls, function(x) !is_valid_url(x)) %>%
-    {urls[which(.)]}
-  
-  urlsValid <- urls[which(!urls %in% urlsNotValid)]
-  
-  urlsLive <- sapply(urlsValid, function(x) !http_error(x) || !http_error(x, user_agent("httr")) || status_code(GET(x)) == 200) %>%
-    {urlsValid[which(.)]}
-  
-  urlsNotLive <- urlsValid[which(!urlsValid %in% urlsLive)]
-  
-  urlsWithPb <- c(urlsNotValid, urlsNotLive)
-  
-  if(length(urlsWithPb) > 0){
-    error <- T
-    message <- c(message, paste("In the CITATIONS tab, the following URLs are not found:", paste(urlsWithPb, collapse = ", ")))
+  if(checkURLs){
+    
+    urls <- PF_citations %>%
+      pull(URL) %>%
+      na.omit() %>%
+      as.vector()
+    
+    urlsNotValid <- sapply(urls, function(x) !is_valid_url(x)) %>%
+      {urls[which(.)]}
+    
+    urlsValid <- urls[which(!urls %in% urlsNotValid)]
+    
+    urlsLive <- sapply(urlsValid, function(x) !http_error(x) || !http_error(x, user_agent("httr")) || status_code(GET(x)) == 200) %>%
+      {urlsValid[which(.)]}
+    
+    urlsNotLive <- urlsValid[which(!urlsValid %in% urlsLive)]
+    
+    urlsWithPb <- c(urlsNotValid, urlsNotLive)
+    
+    if(length(urlsWithPb) > 0){
+      error <- T
+      message <- c(message, paste("In the CITATIONS tab, the following URLs are not found:", paste(urlsWithPb, collapse = ", ")))
+    }
   }
   
         # Check that short citations match information in the CITATIONS tab
