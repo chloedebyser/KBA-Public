@@ -2625,6 +2625,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance, check
         # Check that citation URLs are valid
   if(checkURLs){
     
+    # Check that all entries in the URL column are valid URLs 
     urls <- PF_citations %>%
       pull(URL) %>%
       na.omit() %>%
@@ -2645,6 +2646,17 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance, check
     if(length(urlsWithPb) > 0){
       error <- T
       message <- c(message, paste("In the CITATIONS tab, the following URLs are not found:", paste(urlsWithPb, collapse = ", ")))
+    }
+    
+    # Check that no URLs are entered in the Long Citation column
+    longCitation <- PF_citations %>%
+      pull(`Long citation`) %>%
+      na.omit() %>%
+      as.vector()
+    
+    if(sum(grepl("www.|http", longCitation)) > 0){
+      error <- T
+      message <- c(message, "In the CITATIONS tab, there are URLs entered in the `Long citation` column")
     }
   }
   
