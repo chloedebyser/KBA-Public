@@ -252,6 +252,17 @@ read_KBACanadaProposalForm <- function(formPath, final){
            `Red List SIS number` = as.integer(`Red List SIS number`)) %>%
     arrange(`Scientific name`)
   
+        # Extract species for delisting
+  sppDelisting <- species %>%
+    filter(substr(species$`Explanation of site estimates`, start=1, stop=10) == "DELISTING:") %>%
+    select(`Common name`, `Scientific name`, `Explanation of site estimates`) %>%
+    mutate(`Delisting reason` = trimws(sub("DELISTING:", "", sub("RATIONALE:.*", "", `Explanation of site estimates`))),
+           `Rationale text` = trimws(sub("RATIONALE:", "", sub(".*RATIONALE:", "", `Explanation of site estimates`)))) %>%
+    select(-`Explanation of site estimates`)
+  
+  species %<>%
+    filter(!substr(species$`Explanation of site estimates`, start=1, stop=10) == "DELISTING:")
+  
         # Handle scientific names of the type "sp. #"
   species$`Scientific name` <- sapply(species$`Scientific name`, function(x) trimws(ifelse(!grepl(" sp. ", x, fixed=T), gsub(" sp.", " sp. ", x, fixed=T), x))) %>% as.character()
   
@@ -482,6 +493,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
   PF_check <<- check
   PF_resultsEcosystems <<- resultsEcosystems
   PF_resultsSpecies <<- resultsSpecies
+  PF_delistedSpecies <<- sppDelisting
 }
 
 #### KBA Canada Proposal Form - Convert to Global Multi-Site Form ####
