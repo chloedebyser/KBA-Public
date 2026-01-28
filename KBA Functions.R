@@ -256,7 +256,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
   sppDelisting <- species %>%
     filter(substr(species$`Explanation of site estimates`, start=1, stop=10) == "DELISTING:") %>%
     select(`Common name`, `Scientific name`, `Explanation of site estimates`) %>%
-    mutate(`Delisting reason` = trimws(sub("DELISTING:", "", sub("RATIONALE:.*", "", `Explanation of site estimates`))),
+    mutate(`Delisting reason` = trimws(sub("DELISTING:", "", sub("RATIONALE:.*", "", `Explanation of site estimates`))) %>% gsub(".", "", ., fixed=T),
            `Rationale text` = trimws(sub("RATIONALE:", "", sub(".*RATIONALE:", "", `Explanation of site estimates`)))) %>%
     select(-`Explanation of site estimates`)
   
