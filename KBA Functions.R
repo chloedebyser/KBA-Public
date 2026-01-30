@@ -2899,7 +2899,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance, check
     message <- c(message, "There are KBAInputPolygon records with both an InputPolygonID and a RangeMapID")
   }
   
-  # CONCURRENCE BETWEEN KBA CANADA PROPOSAL FORM AND KBA-EBAR DATABASE
+  # CONGRUENCE BETWEEN KBA CANADA PROPOSAL FORM AND KBA-EBAR DATABASE
         # Site name
   SiteName_DB <- DBS_KBASite %>%
     pull(nationalname)
