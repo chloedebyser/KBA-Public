@@ -261,7 +261,7 @@ read_KBACanadaProposalForm <- function(formPath, final){
     select(-`Explanation of site estimates`)
   
   species %<>%
-    filter(!substr(species$`Explanation of site estimates`, start=1, stop=10) == "DELISTING:")
+    filter(is.na(`Explanation of site estimates`) | !substr(species$`Explanation of site estimates`, start=1, stop=10) == "DELISTING:")
   
         # Handle scientific names of the type "sp. #"
   species$`Scientific name` <- sapply(species$`Scientific name`, function(x) trimws(ifelse(!grepl(" sp. ", x, fixed=T), gsub(" sp.", " sp. ", x, fixed=T), x))) %>% as.character()
