@@ -3627,3 +3627,43 @@ nameLevel <- function(name){
   
   return(level)
 }
+
+#### Get single language from translated text string ####
+extractLanguage <- function(string, language){
+  
+  if(language == "EN"){
+    
+    if(grepl("ENGLISH", string, ignore.case = F)){
+      
+      en <- as.vector(str_locate(string, "ENGLISH")[1,1])
+      
+      if(grepl("FRANCAIS|FRANÇAIS", string, ignore.case = F)){
+        
+        fr <- as.vector(str_locate(string, "FRANCAIS|FRANÇAIS")[1,1])
+        
+        if(fr < en){
+          result <- sub(".*ENGLISH", "", string) %>%
+            sub("-", "", .) %>%
+            trimws()
+          
+        }else{
+          result <- sub("FRANCAIS.*|FRANÇAIS.*", "", string) %>%
+            sub("ENGLISH -|ENGLISH-", "", .) %>%
+            trimws()
+        }
+      }else{
+        
+        result <- sub("ENGLISH -|ENGLISH-", "", .) %>%
+          trimws()
+      }
+      
+    }else{
+      result <- string
+    }
+    
+  }else{
+    stop(paste("Method for language", language, "not yet implemented."))
+  }
+  
+  return(result)
+}
