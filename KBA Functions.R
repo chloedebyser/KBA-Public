@@ -3631,15 +3631,38 @@ nameLevel <- function(name){
 #### Get single language from translated text string ####
 extractLanguage <- function(string, language){
   
+  if(grepl("ENGLISH", string, ignore.case = F)){
+    en <- as.vector(str_locate(string, "ENGLISH")[1,1])
+    
+  }else{
+    en <- NA
+  }
+  
+  if(grepl("FRANCAIS|FRANÇAIS", string, ignore.case = F)){
+    fr <- as.vector(str_locate(string, "FRANCAIS|FRANÇAIS")[1,1])
+    
+  }else{
+    fr <- NA
+  }
+  
   if(language == "EN"){
     
-    if(grepl("ENGLISH", string, ignore.case = F)){
+    if(is.na(en)){
       
-      en <- as.vector(str_locate(string, "ENGLISH")[1,1])
-      
-      if(grepl("FRANCAIS|FRANÇAIS", string, ignore.case = F)){
+      if(is.na(fr)){
+        result <- string
         
-        fr <- as.vector(str_locate(string, "FRANCAIS|FRANÇAIS")[1,1])
+      }else{
+        stop("No English translation provided")
+      }
+      
+    }else{
+      
+      if(is.na(fr)){
+        result <- sub("ENGLISH -|ENGLISH-", "", string) %>%
+          trimws()
+        
+      }else{
         
         if(fr < en){
           result <- sub(".*ENGLISH", "", string) %>%
@@ -3651,14 +3674,7 @@ extractLanguage <- function(string, language){
             sub("ENGLISH -|ENGLISH-", "", .) %>%
             trimws()
         }
-      }else{
-        
-        result <- sub("ENGLISH -|ENGLISH-", "", .) %>%
-          trimws()
       }
-      
-    }else{
-      result <- string
     }
     
   }else{
