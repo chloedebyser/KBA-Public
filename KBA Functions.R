@@ -2752,9 +2752,14 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance, check
         # Check that percentage at site is between 0 and 100
   PF_species %<>% mutate(percentatsite = 100*as.double(`Best site estimate`)/as.double(`Best reference estimate`))
   
-  if(sum(PF_species$percentatsite <= 0, na.rm=T) > 0){
+  if(sum(PF_species$percentatsite < 0, na.rm=T) > 0){
     error <- T
-    message <- c(message, "The percentage of the population at the site is 0% or less for some species")
+    message <- c(message, "The percentage of the population at the site is less than 0% for some species")
+  }   
+  
+  if(sum(PF_species %>% filter(!is.na(`Criteria met`)) %>% pull(percentatsite) == 0, na.rm=T) > 0){
+    error <- T
+    message <- c(message, "The percentage of the population at the site is 0% for some species meeting criteria")
   }   
   
   if(sum(PF_species$percentatsite > 100, na.rm=T) > 0){
