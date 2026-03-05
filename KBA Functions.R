@@ -2228,7 +2228,7 @@ update_KBAEBARDataset <- function(dataset, id){
     
     for(col in cols[which(!cols == id)]){
       
-      if(oldDataset %>% pull(all_of(col)) %>% is.double(.)){
+      if(oldDataset %>% pull(all_of(col)) %>% is.numeric(.)){
         
         if(nrow(oldDataset) > 0){
           oldDataset_noNum[,col] <- sapply(oldDataset_noNum[,col], function(x) as.character(x))
@@ -2244,7 +2244,7 @@ update_KBAEBARDataset <- function(dataset, id){
     
     for(col in cols[which(!cols == id)]){
       
-      if(newDataset %>% pull(all_of(col)) %>% is.double(.)){
+      if(newDataset %>% pull(all_of(col)) %>% is.numeric(.)){
         
         newDataset_noNum[,col] <- sapply(newDataset_noNum[,col], function(x) as.character(x))
       }
