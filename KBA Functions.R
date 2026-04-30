@@ -2335,6 +2335,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance, check
   
   # Starting parameters
   error <- F
+  warning <- NULL
   message <- c()
   
   # KBA CANADA PROPOSAL FORM
@@ -2661,8 +2662,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance, check
     urlsWithPb <- c(urlsNotValid, urlsNotLive)
     
     if(length(urlsWithPb) > 0){
-      error <- T
-      message <- c(message, paste("In the CITATIONS tab, the following URLs are not found:", paste(urlsWithPb, collapse = ", ")))
+      warning <- paste("In the CITATIONS tab, the following URLs are not found:", paste(urlsWithPb, collapse = ", "))
     }
     
     # Check that no URLs are entered in the Long Citation column
@@ -2812,10 +2812,7 @@ check_KBADataValidity <- function(final, postTranslation, priorAcceptance, check
   
               # Produce warning
   if(length(overlaps) > 0){
-    warning <- paste0("WARNING - Site overlaps accepted KBA(s): ", paste0(overlaps, collapse="; "))
-    
-  }else{
-    warning <- NULL
+    warning <- c(warning, paste0("WARNING - Site overlaps accepted KBA(s): ", paste0(overlaps, collapse="; ")))
   }
   
         # Boundary generalization
