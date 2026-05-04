@@ -1823,7 +1823,9 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("InputPolygon", "Restricted/FeatureServer/2", T),
                      c("InputLine", "Restricted/FeatureServer/1", T),
                      c("InputPoint", "Restricted/FeatureServer/0", T),
-                     c("EOPolygon", "EO_Polygons/FeatureServer/0", T))
+                     c("EOPolygon", "EO_Polygons/FeatureServer/0", T),
+                     c("ACCDCPoint", "Restricted/FeatureServer/0", T),
+                     c("ACCDCPolygon", "Restricted/FeatureServer/2", T))
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
@@ -1886,6 +1888,16 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
     }else if(name %in% c("InputPolygon", "InputLine", "InputPoint", "EOPolygon")){
       
       query <- paste0("speciesid IN (", paste(speciesids, collapse=","), ")")
+      
+    }else if(name == "ACCDCPolygon"){
+      
+      query <- DB_InputDataset[which(DB_InputDataset$datasetsourceid == 828), "inputdatasetid"] %>%
+        {paste0("(inputdatasetid IN (", paste(., collapse=","), ")) AND (speciesid IN (", paste(speciesids, collapse=","), "))")}
+    
+    }else if(name == "ACCDCPoint"){
+      
+      query <- DB_InputDataset[which(DB_InputDataset$datasetsourceid == 825), "inputdatasetid"] %>%
+        {paste0("(inputdatasetid IN (", paste(., collapse=","), ")) AND (speciesid IN (", paste(speciesids, collapse=","), "))")}
       
     }else{
       
