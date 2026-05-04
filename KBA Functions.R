@@ -1894,7 +1894,7 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
     
     # Get GeoJSON
     url <- parse_url("https://gis.natureserve.ca/arcgis/rest/services")
-    url$path <- paste(url$path, paste0("EBAR-KBA/", address, "/query"), sep = "/")
+    url$path <- paste(url$path, paste0(ifelse(name=="EOPolygon", "", "EBAR-KBA/"), address, "/query"), sep = "/")
     url$query <- list(where = query,
                       outFields = "*",
                       returnGeometry = ifelse(spatial, "true", "false"),
