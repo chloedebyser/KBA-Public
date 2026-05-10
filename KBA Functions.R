@@ -1825,7 +1825,10 @@ read_KBAEBARDatabase <- function(datasetNames, type, environmentPath, account, e
                      c("InputPoint", "Restricted/FeatureServer/0", T),
                      c("EOPolygon", "EO_Polygons/FeatureServer/0", T),
                      c("ACCDCPoint", "Restricted/FeatureServer/0", T),
-                     c("ACCDCPolygon", "Restricted/FeatureServer/2", T))
+                     c("ACCDCPolygon", "Restricted/FeatureServer/2", T),
+                     c("FP_KBASite", "FP_KBASite/FeatureServer/0", T),
+                     c("FP_SpeciesAtSite", "FP_KBASite/FeatureServer/2", F),
+                     c("FP_EcosystemAtSite", "FP_KBASite/FeatureServer/1", F))
   
   # Only retain datasets that are desired
   if(!missing(datasetNames)){
