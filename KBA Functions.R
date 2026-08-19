@@ -3624,6 +3624,1861 @@ map_KBASite <- function(DBS_KBASite,pathway,map_service,map_type,cities) {
   dev.off()
 }
 
+#### map_KBASite_new function for website. Will eventually replace old mapping function. ####
+map_KBASite_new <- function(
+    KBASiteID, # which KBASiteID to map. Required. 
+    pathway, # where you want to output the map files. Must end in /. Required. 
+    osm_pbf, # an optional parameter to specify a local loading location for Open Street Map data. Saves processing time if on C: instead of G: 
+    BM, # whether or not you want to output the simple basemap into the final PDF. Defaults to F.
+    IM, # whether or not you want to output the aerial imagery map into the final PDF. Defaults to F. 
+    LC, # whether or not you want to output the land cover map into the final PDF. Defaults to T. 
+    BD, # whether or not you want to output the biodiversity element distribution map into the final PDF. Only populates if elements are identified. Defaults to T
+    CPCAD, # whether or not to include CPCAD in the outputs
+    OSM_Water, # whether or not to add OSM lines (water) to LC map
+    OSM_Roads, # Whether or not to add OSM lines (roads and highways to LC map
+    limit_filesize, # whether or not you want to limit the filesize of outputs through successive reductions in DPI, default is yes
+    max_filesize, # the maximum file size in mb
+    dpi, # the starting dpi, default is 300
+    dpi_reduction_factor, # how many pixels to reduce with each successive time processing the map
+    dpi_min, # the minimum acceptable dpi for the final product. 100 is too low. 
+    open_pdf # whether or not you want to open the PDF map after it's completed
+) {
+  # Function Parameter Descriptions and Testing ####
+  
+  #Extract Start time
+  start <- Sys.time()
+  
+  # Requires that Userparameters is loaded for Google Drive
+  if (!exists("googleDrive")) {
+    source("User Parameters.r") # detects user and creates userName, sensitiveDir, and googleDrive character strings.
+    if(user == "Chlo\u00e9"){userName <- "cdebyser"}
+  }
+  
+  # Check UserParameters successfully loaded
+  if (!exists("googleDrive")) {
+    stop("KBA Canada Team Google Drive location not detected. Update User Parameters.R.")
+  }
+  
+  # requires site entry
+  if(missing(KBASiteID)) (stop("Enter a value for KBASiteID") )
+  
+  # pathway = filename (within the desired folder, doesn't need .pdf)
+  if(missing(pathway)) (stop("Enter a value for pathway ending in / to output PDFs. ") )
+  
+  # Do you want a simple base map included in the output?
+  if(missing(BM)) (BM <- FALSE)
+  
+  # Do you want an imagery map included in the output?
+  if(missing(IM)) (IM <- FALSE)
+  
+  # Do you want a land cover map included in the output?
+  if(missing(LC)) (LC <- TRUE)
+  
+  # Do you want an biodiversity element distribution map included in the output?
+  if(missing(BD)) (BD <- TRUE)
+  
+  # include cpcad in the outputs?
+  if(missing(CPCAD)) (CPCAD <- FALSE)
+  
+  # Add OSM lines for water courses and roads?? Default to NO - saves space, some poor watercourse data in places
+  if(missing(OSM_Water)) (OSM_Water <- FALSE)
+  
+  # Add OSM lines for roads?? Default is true, fine to include. 
+  if(missing(OSM_Roads)) (OSM_Roads <- TRUE)
+  
+  # To save a vast amount of processing time, stored the .osm.pbf file for North America in this folder. 
+  # To update, download from "https://download.geofabrik.de/north-america/canada-latest.osm.pbf"
+  #osm_pbf <- "C:/GIS/OSM/canada-260308.osm.pbf" # local for testing, faster processing off Google Drive
+  if(missing(osm_pbf)) (
+    osm_pbf <- paste0(googleDrive, "/1. Source Datasets/OSM/canada-260308.osm.pbf")
+  ) # slow processing on Google Drive, but accessible. 
+  
+  # Do you want to limit the file size to some limit? Default is YES
+  if(missing(limit_filesize)) (limit_filesize <- TRUE)
+  
+  # What is the maximum filesize acceptable? Default is 2 MB
+  if(missing(max_filesize)) (max_filesize <- 2)
+  
+  # What is the starting DPI you want? Default is 300. 
+  if(missing(dpi)) (dpi <- 300)
+  
+  # How many pixels do you want to reduce the map by each time you process it?
+  if(missing(dpi_reduction_factor)) (dpi_reduction_factor <- 50)
+  
+  # Minimum acceptable dpi for final image
+  if(missing(dpi_min)) (dpi_min <- 150)
+  
+  # Open File logic
+  if(missing(open_pdf)) (open_pdf <- FALSE)
+  
+  # Load Functions (if not already loaded)
+  required_functions <- c("read_KBAEBARDatabase", "filter_KBAEBARDatabase")
+  for (f in required_functions){
+    if(!exists(f)){
+      stop(paste("Function", f, "is not loaded."))
+      #source_url("https://github.com/chloedebyser/KBA-Public/blob/main/KBA%20Functions.R?raw=TRUE")
+    }
+  }
+  
+  # Set Maptiler APIs (provides higher resolution base maps with better info. Can make a free account and use 100,000 pulls per month)
+  maptiler_api <- "oetpeah7T8Oicb4nu9ab" #zmoore@wcs.org
+  #maptiler_api <- "Axx7yCqgEupUoWmglqPO"
+  
+  # Admin #### 
+  cat("\n\nStarting to create map for KBASiteID ", KBASiteID)
+  
+  # For loading files with non-English characters (e.g., some site names) and to ensure legend items are in English
+  Sys.setlocale("LC_ALL", "English_United States.utf8") 
+  
+  ## Packages ####
+  required_pkgs <- 
+    c("tidyverse",
+      "sf",
+      "magrittr",
+      "openxlsx",
+      "elevatr",
+      "terra",
+      "officer",
+      "ddpcr",
+      "googledrive",
+      "httr",
+      "geojsonsf",
+      "readxl",
+      "stringr",
+      "devtools",
+      "basemaps",
+      "ggspatial",
+      "canadianmaps",
+      "cowplot",
+      "grid",
+      "gtable",
+      "gridExtra",
+      "terra",
+      "showtext", # for getting KBA comms fonts
+      #"ggfx", # for halos on labels (no longer used",
+      "png", # for handling pngs
+      #"tidyterra", # Has to be run with at least 4.5.2 to use tidyterra
+      #"osmdata", # alternative loading format
+      "osmextract", # for extracting Open Street Map data
+      "geomtextpath", # for adding labels on linear features (no longer used because of messiness",
+      "gridtext", # for adding grobs in maps
+      "gridSVG", # for adding grobs in maps
+      "ggnewscale", # for adding multiple scale_fills onto ggplot
+      "pdftools", # for converting the pdf into png and then reprinting to reduce file size.  
+      "ggrepel", # for offsetting labels
+      "viridisLite", # for colourblind friendly colour palette
+      #remotes::install_github("ITSleeds/OSMTools"",
+      "OSMtools" # required to save massive processing time in using OSM data. Contains OSMConvert tool in source files. 
+    )
+  
+  # Check each package is loaded
+  missing_pkgs <- required_pkgs[
+    !vapply(required_pkgs, requireNamespace,
+            FUN.VALUE = logical(1),
+            quietly = TRUE)
+  ]
+  
+  
+  if (length(missing_pkgs) > 0) {
+    stop(
+      "Missing required packages: ",
+      paste(missing_pkgs, collapse = ", ")
+    )
+  }
+  ## Fonts ####
+  font_add_google("Open Sans", "opensans")   # loads all weights
+  font_add_google("Montserrat", "montserrat")
+  #font_add_google("Noto Sans", "noto")
+  showtext_auto()
+  #
+  ## KBA-EBAR database ####
+  # DO NOT HAVE TO READ IN FUNCTION IF ALREADY LOADED IN ENV
+  required_tables <- c("BIOTICS_ELEMENT_NATIONAL", "Species", "KBASite", "SpeciesAtSite", "EcosystemAtSite", "BiodivElementDistribution", "KBALandCover")
+  
+  #Load KBA EBAR Database for testing, comment out for function
+  #read_KBAEBARDatabase(datasetNames = required_tables,type="include",environmentPath = sensitiveDir,account=userName) %>% suppressWarnings()
+  
+  # Check each table is loaded
+  for (t in required_tables) {
+    if(!exists(paste0("DB_", t))) {
+      stop(paste0("DB_", t, " was not detected. Run Read_KBABARDatabase to load required tables: ", required_tables))
+    }
+  }
+  
+  # Filter KBAEBARDatabase
+  filter_KBAEBARDatabase(KBASiteIDs = KBASiteID, RMUnfilteredDatasets = F)
+  
+  # Is published logic
+  published_site <- DBS_KBASite$sitestatus %in% c(6,7,8)
+  
+  # Remove sensitive species at site 
+  # just in case they're linked to internal polygons that are NOT supposed to be viewed, but are ALSO for a non-Sensitive species
+  if(published_site){
+    
+    # Remove sensitive species
+    DBS_SpeciesAtSite %<>%
+      filter(
+        display_taxonname == "Yes",
+        display_assessmentinfo == "Yes"
+      )
+    
+    # Determine which SpeciesAtSite entries need to omit internal polygons
+    biodivToKeep <- DBS_SpeciesAtSite %>%
+      filter(
+        display_biodivelementdist == "Yes" #might want to include other sensitivity filters...
+      ) %>%
+      pull(biodivelementdistributionid) %>%
+      unique(.)
+    
+  } else { #Unpublished sites don't have these fields filled out
+    DBS_SpeciesAtSite %<>%
+      filter(
+        showonpublicdashboard == "Yes",
+      )
+    
+    # Determine which SpeciesAtSite entries need to omit internal polygons
+    biodivToKeep <- DBS_SpeciesAtSite %>%
+      pull(biodivelementdistributionid) %>%
+      unique(.)
+  }
+  
+  # Remove internal polygons with only sensitive species
+  DBS_BiodivElementDistribution %<>%
+    filter(biodivelementdistributionid %in% biodivToKeep)
+  
+  #
+  ## Legend Items ####
+  # Define legend rows using colours and descriptions from NALCMS 2020 (Custom CSV) 
+  legend_items <- 
+    read.csv(
+      paste0(googleDrive, "/2. Formatted Datasets - Tabular/Map_Legend.csv"),
+      encoding = "UTF-8"
+    )
+  
+  names(legend_items)[1] <- "type" # not sure why it's misreading this column name
+  
+  # Logic to exclude OSM_Water
+  if(!OSM_Water){
+    legend_items %<>%
+      filter(!lcat %in% c("Watercourse"))
+  }
+  
+  #Logic to exclude OSM_Roads
+  if(!OSM_Roads){
+    legend_items %<>%
+      filter(!lcat %in% c("Major Road", "Minor Road", "Railway"))
+  }
+  
+  # Only include CPCAD if desired
+  if(!CPCAD){
+    legend_items %<>% 
+      filter(eng != "Canadian Protected and Conserved Areas Database")
+  }
+  
+  # Add columns from KBA_LandCover (before wrapping*)
+  legend_items$perc <- DBS_KBALandCover$percentcover[match(legend_items$eng, DBS_KBALandCover$landcover_en)]
+  legend_items$perc <- ifelse(legend_items$perc < 1, "<1", round(legend_items$perc, 0))
+  
+  # Change type to boxnum so grob in legend will population with number inside
+  if(exists("DBS_KBALandCover")){# this line allows both published and unpublished sites to be mapped. 
+    legend_items$type <- ifelse (is.na(legend_items$perc), legend_items$type, "boxnum") 
+  }
+  
+  # Wrap text in french and english columns
+  wrap_length <- 50 # num char chosen based on Trial and Error, dependent on width of legend columns in Part 3
+  wrap_text <- function(x) {x |> strwrap(width = wrap_length) |> paste(collapse = "\n")} 
+  legend_items$fr <- sapply(legend_items$fr, wrap_text)
+  legend_items$eng <- sapply(legend_items$eng, wrap_text)
+  #                        
+  # Extract bounding box for the KBA ####
+  DBS_KBASite %<>% st_make_valid() %>% # make valid for bounding box function, otherwise can be weird with some sites
+    st_transform(crs = 3857) # coordinate system needed for base map function
+  
+  # Create a fixed-aspect bbox polygon around any sf object
+  fixed_aspect_bbox <- function(x, ratio = 5/4.5, pad = 0.05) {
+    
+    # x = sf object
+    # ratio = width / height (e.g., 5/4), manually compared with existing maps
+    # pad = proportion of final width/height to pad on each side (0.05 = 5%)
+    
+    # Stop if not a sf 
+    stopifnot(inherits(x, "sf") || inherits(x, "sfc"))
+    
+    # Take bounding box from sf 'x' object
+    bb <- st_bbox(x)
+    
+    # Current metrics
+    w <- as.numeric(bb["xmax"] - bb["xmin"])
+    h <- as.numeric(bb["ymax"] - bb["ymin"])
+    if (w == 0 && h == 0) stop("Degenerate bbox: zero width and height (are these points with identical coords?)")
+    if (w == 0) w <- 1e-9
+    if (h == 0) h <- 1e-9
+    
+    # Current Aspect is width over height
+    current_aspect <- w / h
+    
+    # Determine the center
+    cx <- as.numeric(bb["xmin"] + w / 2)
+    cy <- as.numeric(bb["ymin"] + h / 2)
+    
+    # Target width/height to match the requested aspect ratio
+    if (current_aspect < ratio) {
+      # too tall -> widen
+      target_w <- ratio * h
+      target_h <- h
+    } else {
+      # too wide -> grow height
+      target_w <- w
+      target_h <- w / ratio
+    }
+    
+    # Apply padding as a fraction of the final target size
+    target_w <- target_w * (1 + 2 * pad)
+    target_h <- target_h * (1 + 2 * pad)
+    
+    # Create Final Bounding Box Corners at target ratio
+    xmin <- cx - target_w / 2
+    xmax <- cx + target_w / 2
+    ymin <- cy - target_h / 2
+    ymax <- cy + target_h / 2
+    
+    rect <- st_as_sfc(st_bbox(c(xmin = xmin, ymin = ymin, xmax = xmax, ymax = ymax), crs = st_crs(x)))
+    st_sf(geometry = rect)
+  }
+  
+  # Running function to create fixed aspect bbox
+  bb_poly <- fixed_aspect_bbox(DBS_KBASite)
+  bb <- st_bbox(bb_poly)
+  
+  # Extract width, length, and area for determining orientation and expansion
+  length <- bb$ymax - bb$ymin
+  width <- bb$xmax - bb$xmin
+  area <- as.numeric(st_area(DBS_KBASite))
+  
+  # Bigsite logic
+  big_site <- ifelse(area > 10^10, TRUE, FALSE) # arbitrary threshold
+  really_big_site <- ifelse(area > 10^12, TRUE, FALSE)
+  
+  # Determining buffer based on area (arbitrary numbers that looked good with example sites)
+  buffer <- ifelse (big_site, 10000, 2000)
+  
+  # Expanding bounding box by arbitrary buffer, otherwise doesn't map to edge
+  bb_basemap <- bb
+  bb_basemap[1:2] <- bb[1:2] - buffer
+  bb_basemap[3:4] <- bb[3:4] + buffer
+  #
+  ## Extract context data in bounding box (osmextract::) ####
+  if(LC){ #Only including these context layers in LC map. 
+    # osm data did not work, took too long. Simple queries with extract worked better. 
+    # Change internet timeout option
+    options(timeout = 1000) # for loading a new North America .osm.pbf, but takes forever
+    # Set globally before calling oe_read
+    Sys.setenv(GDAL_CACHEMAX = "1024") 
+    
+    # For function show status update
+    cat("\nReading context layers from Open Street Map data (", osm_pbf, "). This will take longer for larger sites.")
+    if(osm_pbf == paste0(googleDrive, "/1. Source Datasets/OSM/canada-260308.osm.pbf")){
+      cat("\nTo save processing time, consider copying /1. Source Datasets/OSM/canada-260308.osm.pbf to your C: drive and specifying the osm_pbf argument with the new location.
+          This reduced runtime for site 2443 from 6.9 to 1.7 minutes.")
+    } 
+    
+    # Create a subset of the OSM data for the bounding box using osmconvert (much faster than loading the whole dataset and then subsetting in R, which takes forever)
+    bb_coords <- st_transform(bb_poly, 4326) %>% st_bbox() %>% as.vector() %>% paste(collapse = ",")
+    osmconvert_path <- file.path(system.file(package = "OSMtools"), "osmconvert.exe") # Get the path to the osmconvert tool hidden inside the R package OSMTools (needs to be installed)
+    osm_pbf_subset <- gsub(".osm.pbf", "_subset.pbf", osm_pbf) # creates a new filename for the subset, in the same location as the original
+    cmd <- sprintf('"%s" "%s" -b=%s -o="%s"', osmconvert_path, osm_pbf, bb_coords, osm_pbf_subset) # Build the command. Format: osmconvert input -b=coords -o=output
+    status_check <- system(cmd)# Run the command through the application to reduce the pbf to the bounding box of the site. 
+    
+    # If issues, stop and print message
+    if (status_check == 0) {
+      cat("\nOSM data subset created successfully.")
+    } else {
+      stop("\nError in creating OSM subset. Make sure OSMtools is installed. Check osmconvert tool and paths.")
+    }
+    
+    # Determine query for lines layer based on options for OSM
+    if(OSM_Water & OSM_Roads) {
+      osm_lines_query <- "SELECT * FROM lines WHERE 
+            highway IN ('motorway','trunk','primary','secondary','tertiary','residential','service','unclassified') OR 
+            railway IN ('rail') OR
+            waterway IS NOT NULL"
+    }
+    
+    if(OSM_Water & !OSM_Roads) {
+      osm_lines_query <- "SELECT * FROM lines WHERE
+            waterway IS NOT NULL"
+    }
+    
+    if(!OSM_Water & OSM_Roads) {
+      osm_lines_query <- "SELECT * FROM lines WHERE 
+            highway IN ('motorway','trunk','primary','secondary','tertiary','residential','service','unclassified') OR 
+            railway IN ('rail')"
+    }
+    
+    # Lines layer
+    if(OSM_Water | OSM_Roads){ 
+      osm_lines <- 
+        oe_read(
+          file_path = osm_pbf_subset,
+          boundary = st_transform(bb_poly, 4326),  # <- polygon in WGS84 ensures server-side clip, otherwise loads whole dataset (which takes forever)
+          extra_tags = "ref", 
+          layer = "lines",
+          query = osm_lines_query
+          ,
+          force_download = FALSE
+        ) 
+      
+      #Fix for UTF encoding issue in the "ref" column (only an occassional issue sometimes?)
+      #osm_lines <- osm_lines %>% mutate(across(where(is.character), ~ iconv(.x, from = "", to = "UTF-8", sub = NA)))
+      
+      # Sanity Check 
+      #if(any(is.na(iconv(osm_lines$waterway, "", "UTF-8")))){print("UTF-8 encoding problem!")} 
+      
+      # modify (separated because of long processing time in first chunk)
+      osm_lines <- osm_lines %>%
+        st_transform(.,crs(bb_poly)) %>%
+        mutate(
+          type = ifelse (highway %in% c('motorway','trunk','primary','secondary'), "Major Road", NA),
+          type = ifelse (highway %in% c('tertiary','residential','service','unclassified'), "Minor Road", type),
+          type = ifelse (railway %in% c('rail'), "Railway", type),
+          type = ifelse (!is.na(waterway), "Watercourse", type),
+          
+          #Match colours from legend table
+          col = legend_items$lcol[ match(type, legend_items$lcat) ],
+          linetype = legend_items$lty[ match(type, legend_items$lcat) ],
+          linewidth = legend_items$lwd[ match(type, legend_items$lcat) ]
+        )
+    }
+    
+    # Points Layer
+    osm_points <- oe_read(
+      file_path = osm_pbf_subset,
+      boundary = st_transform(bb_poly, 4326),  # <- polygon in WGS84 ensures server-side clip, otherwise loads whole dataset (which takes forever)
+      extra_tags = "ref", 
+      layer = "points",
+      query = "SELECT * FROM points WHERE place IN ('city','town','village')", #removed 'hamlet',
+      boundary_type = "clipsrc", # ensures server-side clip, otherwise loads whole dataset (which takes forever)
+      force_download = FALSE
+    ) 
+    
+    # Modify (separated because of long processing time in first chunk)
+    osm_points <- osm_points %>%
+      st_transform(.,crs(bb_poly)) %>%
+      mutate(
+        x = st_coordinates(.)[, 1],
+        y = st_coordinates(.)[, 2]
+      )
+    
+    
+    # For function print status update
+    cat("OSM layer read complete.")
+  }  
+  #
+  ## Extract land cover raster in bounding box ####
+  # For function print status update
+  if(LC){
+    cat("\nProcessing land cover raster. This will take longer for larger sites.\n")
+    
+    # Load from Google Drive
+    if(!exists("landCover")){
+      assign(
+        "landCover",
+        rast(paste0(googleDrive,"/1. Source Datasets/Natural Resources Canada/LandCover2020/landcover-2020-classification-EPSG3857.tif")),
+        envir = .GlobalEnv
+      )
+      cat("Adding 'landCover' in EPSG 3857 to Global Environment")
+    }
+    
+    # Check landCover is in the proper projection (and not preloaded in env for some reason)
+    if(!st_crs(landCover)$epsg == 3857){
+      stop("landCover is loaded and is not in the proper projection (EPSG 3857), remove it from your environment and rerun the function.")
+    }
+    
+    # Clip to site boundary
+    landCoverSite <- terra::crop(landCover, bb_poly) 
+    landCoverSite <- terra::mask(landCoverSite, bb_poly)
+    
+    # Generalize result after mask/crop
+    landCoverSite <- as.factor(round(landCoverSite))
+    
+    # Aggregation to reduce raster size and speed up visualization for large sites
+    if(big_site){
+      agFact <- ifelse (really_big_site, 4, 2) # arbitrary numbers that looked good with example sites, tweak as needed. Only applies to very large sites.
+      landCoverSite <- aggregate(landCoverSite, fact = agFact, fun = "modal")
+    }
+    
+    # Change to st_stars for use in ggplot
+    landCoverSite <- st_as_stars(landCoverSite)
+    
+    # Create out for sites with no landcover
+    if(length(landCoverSite$Canada2020) == length(which(is.nan(landCoverSite$Canada2020))) |
+       length(landCoverSite$Canada2020) == length(which(is.na(landCoverSite$Canada2020)))){
+      plot_LC <- F
+    } else {
+      plot_LC <- T
+    }
+    
+    # Create vector of colours to use when plotting raster
+    LCcols <- c(legend_items$fill)
+    names(LCcols) <- c(legend_items$nalcmsID)
+    LCcols <- LCcols[-which(LCcols == "")]
+    
+    # For function print status update
+    cat("\nLand cover raster processing complete.\n")
+  }
+  
+  ## Extract CPCAD in bounding box ####
+  if(CPCAD){
+    
+    # Update
+    cat("\nProcessing CPCAD\n")
+    
+    # Load from Google Drive (if not already loaded) into main environment (preprocessed in 11.0.1)
+    if(!exists("cpcad")){
+      assign(
+        "cpcad",
+        st_read(paste0(googleDrive,"/1. Source Datasets/Environment and Climate Change Canada/ProtectedConservedArea_2025/ProtectedConservedArea_2025.gdb"), layer = "ProtectedConservedArea_2025_EPSG3857"),
+        envir = .GlobalEnv
+      )
+      cat("Adding 'cpcad' in EPSG 3857 to Global Environment")
+    }
+    
+    # Check cpcad is in the proper projection (and not preloaded in env for some reason)
+    if(!st_crs(cpcad)$epsg == 3857){
+      stop("cpcad is already loaded and is not in the proper projection (EPSG 3857), remove it from your environment and rerun the function.")
+    }
+    
+    # Crop to site
+    cpcad_site <- cpcad %>%
+      st_crop(bb) %>%
+      mutate(
+        type = case_when(
+          GOV_TYPE == 1 ~ "National",
+          GOV_TYPE == 2 ~ "Provincial",
+          !GOV_TYPE %in% c(1,2) ~ "Other"
+        ), 
+        type = factor(type, levels = c("National", "Provincial", "Other")),
+        Shape_Area = as.numeric(st_area(.)),
+        label = case_when(
+          Shape_Area > 0.05*area ~ NAME_E,
+          TRUE ~ NA
+        ), 
+        label = stringr::str_wrap(label, 20)
+      ) %>%
+      group_by(type, label) %>%
+      summarize(n = n()) %>%
+      st_cast("MULTIPOLYGON")
+    
+    
+    # Status Update
+    cat("\nCPCAD Processing Complete.\n")
+    
+  }
+  
+  # Make Panels For Final Map ####
+  # For function print status update
+  cat("\nProducing Map Components\n")
+  
+  ## KBASiteMap_BM (basemap, page 1) ####
+  if(BM){ # only create BMagery map if desired. 
+    KBASiteMap_BM <- DBS_KBASite %>%
+      
+      #start plot
+      ggplot()+
+      
+      #basemap (from basemaps::)
+      basemap_gglayer(
+        ext = bb_basemap, 
+        #map_service = "esri",
+        #map_type = "world_street_map" ,
+        map_service = "maptiler", 
+        map_type = "outdoor", 
+        map_token = maptiler_api,
+        map_res = ifelse(big_site, 1, 1) 
+      )+
+      scale_fill_identity() +
+      
+      #use ggnewscale to reset fill (allows multiple fill type [identity and manual])
+      ggnewscale::new_scale_fill()
+    
+    # Add cpcad (if set)
+    if(CPCAD){
+      KBASiteMap_BM <- KBASiteMap_BM + 
+        geom_sf(data = cpcad_site, color = "darkgreen", fill = "lightgreen", linewidth = 0.5, alpha = 0.5)
+      #geom_sf(data = cpcad_site, aes(fill = type), linewidth = 0.5, alpha = 0.5) +
+      #geom_sf_text(data = cpcad_site, aes(label = label), color = "darkgreen", size = 3, check_overlap = TRUE)
+    }
+    
+    KBASiteMap_BM <- KBASiteMap_BM +
+      
+      # adding osm layers (removed, only aerial)
+      #geom_sf(data = osm_lines, aes(col = col, linewidth = linewidth, linetype = linetype), show.legend = FALSE, alpha = 0.5) + 
+      #scale_colour_identity() +
+      #scale_linewidth_identity()+
+      #scale_linetype_identity()+
+      
+      # Adding KBA polygon
+      # 1) Bottom: thick black solid
+      geom_sf(data = DBS_KBASite, color = "black", fill = NA, linewidth = 1.6, lineend = "butt", linejoin = "round") +
+      # 2) Top: thinner white dashed (tweak dash style to taste)
+      geom_sf(data = DBS_KBASite, color = "white", fill = NA, linewidth = 0.7,
+              linetype = "longdash", lineend = "butt", linejoin = "round") +
+      
+      # Major roads Label
+      #with_outer_glow(geom_textsf(data = filter(osm_lines, type == "Major Road"), aes(label = ref), vjust = 0.5, size = 3, lwd = 0, straight = TRUE, color = legend_items$labelcol[2]), sigma = 1, colour = "white", expand = 2) + #relative reference
+      #geom_textsf(data = filter(osm_lines, type == "Major Road"), aes(label = ref), vjust = 0.5, size = 3, lwd = 0, straight = TRUE, color = legend_items$labelcol[2]) + #relative reference
+      
+      # Cities label
+      #with_outer_glow(geom_sf_text(data = filter(osm_points), aes(label = name), vjust = 0.5, size = 3, color = legend_items$labelcol[2]), sigma = 1, colour = "white", expand = 2) + #relative reference
+      #geom_sf_text(data = filter(osm_points), aes(label = name), vjust = 0.5, size = 3, color = legend_items$labelcol[2])+ #relative reference
+      
+      # Streams and Rivers Label
+      #with_outer_glow(geom_textsf(data = filter(osm_lines, type == "Major Roads"), aes(label = name), vjust = 0, size = 3, lwd = 0, straight = TRUE, color = legend_items$labelcol[7]), sigma = 1, colour = "white", expand = 2) + 
+      
+      # Add provinces and territories
+      #geom_sf(data = PROV, fill = NA, col = "grey", lwd = 0.5, lty = 2) +
+      
+      # Suppress Axis Labels
+      xlab("") + ylab("") +
+      
+      # SiteCode/ KBASiteID Label
+      #ggfx::with_outer_glow(
+      geom_sf_text(aes(label = ifelse(!published_site, paste("KBASiteID", kbasiteid), sitecode)),
+                   family = "opensans", fontface = "bold",
+                   size = 6, colour = "black") +#,
+      # colour = "white",  # halo color
+      #sigma  = 0,        # blur (0–1 crisp; >1 softer)
+      #expand = 2         # halo thickness
+      #) +
+      
+      #annotations (scale and north arrow) (from ggspatial::)
+      annotation_scale(aes(location = "bl"), pad_x = unit(2,"cm"), pad_y = unit(0.35,"cm"), style = "ticks", line_width = 2) + 
+      annotation_north_arrow(aes(location = "bl"), pad_x = unit(0.5,"cm"), pad_y = unit(0.2,"cm"), height = unit(1, "cm"), width = unit(1, "cm"), style = north_arrow_orienteering) +
+      
+      #Theme
+      theme_void() + #removes graticule lines
+      theme(
+        plot.title = element_blank(),
+        axis.line = element_blank(), 
+        panel.background = element_rect(colour = "black", linewidth = 1),
+        panel.ontop = TRUE,  # <-- ensures the border (and grid) are drawn on top of geoms
+        plot.margin = grid::unit(c(0, 0, 0, 0), "mm")
+      )
+    
+    # Final coordinate zoom (apply after adding all the labels and things to make sure the image is only the bb)
+    quiet(KBASiteMap_BM <- KBASiteMap_BM + coord_sf(xlim = c(bb$xmin, bb$xmax), ylim = c(bb$ymin, bb$ymax), expand = F))
+    
+    #Display 
+    KBASiteMap_BM
+  }
+  #
+  
+  ## KBASiteMap_IM (imagery, page 2) ####
+  if(IM){ # only create Imagery map if desired. 
+    KBASiteMap_IM <- DBS_KBASite %>%
+      
+      #start plot
+      ggplot()+
+      
+      #basemap (from basemaps::)
+      basemap_gglayer(
+        ext = bb_basemap, 
+        #map_service = "esri",
+        #map_type = "world_imagery",
+        map_service = "maptiler", 
+        map_type = "satellite", 
+        map_token = maptiler_api,
+        map_res = ifelse(big_site, 1, 1)
+      )+
+      scale_fill_identity() +
+      
+      #use ggnewscale to reset fill (allows multiple fill type [identity and manual])
+      ggnewscale::new_scale_fill() +
+      
+      # adding osm layers (removed, only aerial)
+      #geom_sf(data = osm_lines, aes(col = col, linewidth = linewidth, linetype = linetype), show.legend = FALSE, alpha = 0.5) + 
+      #scale_colour_identity() +
+      #scale_linewidth_identity()+
+      #scale_linetype_identity()+
+      
+      # Adding KBA polygon
+      # 1) Bottom: thick black solid
+      geom_sf(data = DBS_KBASite, color = "black", fill = NA, linewidth = 1.6, lineend = "butt", linejoin = "round") +
+      # 2) Top: thinner white dashed (tweak dash style to taste)
+      geom_sf(data = DBS_KBASite, color = "white", fill = NA, linewidth = 0.7,
+              linetype = "longdash", lineend = "butt", linejoin = "round") +
+      
+      # Major roads Label
+      #with_outer_glow(geom_textsf(data = filter(osm_lines, type == "Major Road"), aes(label = ref), vjust = 0.5, size = 3, lwd = 0, straight = TRUE, color = legend_items$labelcol[2]), sigma = 1, colour = "white", expand = 2) + #relative reference
+      #geom_textsf(data = filter(osm_lines, type == "Major Road"), aes(label = ref), vjust = 0.5, size = 3, lwd = 0, straight = TRUE, color = legend_items$labelcol[2]) + #relative reference
+      
+      # Cities label
+      #with_outer_glow(geom_sf_text(data = filter(osm_points), aes(label = name), vjust = 0.5, size = 3, color = legend_items$labelcol[2]), sigma = 1, colour = "white", expand = 2) + #relative reference
+      #geom_sf_text(data = filter(osm_points), aes(label = name), vjust = 0.5, size = 3, color = legend_items$labelcol[2])+ #relative reference
+      
+      # Streams and Rivers Label
+      #with_outer_glow(geom_textsf(data = filter(osm_lines, type == "Major Roads"), aes(label = name), vjust = 0, size = 3, lwd = 0, straight = TRUE, color = legend_items$labelcol[7]), sigma = 1, colour = "white", expand = 2) + 
+      
+      # Add provinces and territories
+      #geom_sf(data = PROV, fill = NA, col = "grey", lwd = 0.5, lty = 2) +
+      
+      # Suppress Axis Labels
+      xlab("") + ylab("") +
+      
+      # SiteCode/ KBASiteID Label
+      #ggfx::with_outer_glow(
+      geom_sf_text(aes(label = ifelse(!published_site, paste("KBASiteID", kbasiteid), sitecode)),
+                   family = "opensans", fontface = "bold",
+                   size = 6, colour = "white") +#,
+      # colour = "white",  # halo color
+      #sigma  = 0,        # blur (0–1 crisp; >1 softer)
+      #expand = 2         # halo thickness
+      #) +
+      
+      #annotations (scale and north arrow) (from ggspatial::)
+      annotation_scale(aes(location = "bl"), pad_x = unit(2,"cm"), pad_y = unit(0.35,"cm"), style = "ticks", line_width = 2, line_col = "white", text_col = "white") + 
+      annotation_north_arrow(aes(location = "bl"), pad_x = unit(0.5,"cm"), pad_y = unit(0.2,"cm"), height = unit(1, "cm"), width = unit(1, "cm"), style = north_arrow_orienteering(fill = c("white", "white"), line_col = "black", text_col = "white")) +
+      
+      #Theme
+      theme_void() + #removes graticule lines
+      theme(
+        plot.title = element_blank(),
+        axis.line = element_blank(), 
+        panel.background = element_rect(colour = "black", linewidth = 1),
+        panel.ontop = TRUE,  # <-- ensures the border (and grid) are drawn on top of geoms
+        plot.margin = grid::unit(c(0, 0, 0, 0), "mm")
+      )
+    
+    # Final coordinate zoom (apply after adding all the labels and things to make sure the image is only the bb)
+    quiet(KBASiteMap_IM <- KBASiteMap_IM + coord_sf(xlim = c(bb$xmin, bb$xmax), ylim = c(bb$ymin, bb$ymax), expand = F))
+    
+    #Display 
+    KBASiteMap_IM
+  }
+  #
+  ## KBASiteMap_LC (land cover, page 3)####
+  if(LC) {
+    KBASiteMap_LC <- DBS_KBASite %>%
+      
+      #start plot
+      ggplot()+
+      
+      #basemap (from basemaps::get_types())
+      basemap_gglayer(
+        ext = bb_basemap, 
+        #map_service = "esri",
+        #map_type = "world_street_map",
+        map_service = "maptiler", 
+        map_type = "basic",
+        map_token = maptiler_api,
+        map_res = ifelse(big_site, 1, 1)
+      )+
+      scale_fill_identity() +
+      
+      #use ggnewscale to reset fill (allows multiple fill type [identity and manual])
+      ggnewscale::new_scale_fill()
+    
+    #plot land cover (can't use this package, tidyterra with R 4.1.1)
+    #geom_spatraster(data = landCoverSite, show.legend = FALSE) +
+    #scale_fill_manual(values = LCcols, na.value = NA, drop = FALSE) +
+    #coord_equal() +
+    
+    # plot land cover using stars
+    if(plot_LC){
+      KBASiteMap_LC <- KBASiteMap_LC +
+        geom_stars(data = landCoverSite, na.rm = TRUE, show.legend = FALSE) +
+        scale_fill_manual(values = LCcols, na.value = NA, drop = FALSE) +
+        coord_equal() 
+    }
+    
+    # adding osm layers (if desired)
+    if(OSM_Water | OSM_Roads){
+      KBASiteMap_LC <- KBASiteMap_LC + geom_sf(data = osm_lines, aes(col = col, linewidth = linewidth, linetype = linetype), show.legend = FALSE) +
+        scale_colour_identity() +
+        scale_linewidth_identity()+
+        scale_linetype_identity()
+    }
+    
+    # Adding other layers
+    KBASiteMap_LC <- KBASiteMap_LC +
+      
+      # Adding KBA polygon
+      # 1) Bottom: thick black solid
+      geom_sf(data = DBS_KBASite, color = "black", fill = NA, linewidth = 1.6, lineend = "butt", linejoin = "round") +
+      # 2) Top: thinner white dashed (tweak dash style to taste)
+      geom_sf(data = DBS_KBASite, color = "white", fill = NA, linewidth = 0.7,
+              linetype = "longdash", lineend = "butt", linejoin = "round") +
+      
+      # Major roads Label
+      #ggfx::with_outer_glow(geom_textsf(data = filter(osm_lines, type == "Major Road"), aes(label = ref), vjust = 0.5, size = 3, lwd = 0, straight = TRUE, color = legend_items$labelcol[2]), sigma = 0.4, colour = "white", expand = 0.8) + #relative reference
+      #geom_textsf(data = filter(osm_lines, type == "Major Road"), aes(label = ref), vjust = -0.25, size = 3, lwd = 0, straight = TRUE, color = legend_items$labelcol[2]) + #relative reference
+      #geom_textsf(data = filter(osm_lines, type == "Major Road"), aes(label = ref), vjust = 0.5, size = 3, lwd = 0, straight = TRUE, color = "white") + #relative reference
+      
+      # Cities label
+      #ggfx::with_outer_glow(geom_sf_text(data = filter(osm_points), aes(label = name), vjust = 0.5, size = 3, color = legend_items$labelcol[2]), sigma = 0.4, colour = "white", expand = 0.8) + #relative reference
+      #geom_sf_text(data = filter(osm_points), aes(label = name), vjust = -1, size = 3, color = legend_items$labelcol[2])+ #relative reference
+      geom_point(
+        data = osm_points,
+        aes(x = x, y = y),
+        size = 1,
+        color = "#000000ff" 
+      ) + 
+      geom_text_repel(
+        data = osm_points,
+        aes(x = x, y = y, label = name),
+        size = 3,
+        family = "montserrat",
+        color = "#000000ff",
+        box.padding = 0.2,
+        point.padding = 0.1,
+        min.segment.length = Inf   # always draw leader lines
+      ) +
+      
+      #geom_sf_text(data = filter(osm_points), aes(label = name), vjust = 0.5, size = 3, color = "white")+ #relative reference
+      #ggfx::with_shadow(geom_sf_text(data = filter(osm_points), aes(label = name), vjust = 0.5, size = 3, color = legend_items$labelcol[2]), sigma = 0.4, colour = "white") + #relative reference
+      
+      # Streams and Rivers Label
+      #with_outer_glow(geom_textsf(data = filter(osm_lines, type == "Major Roads"), aes(label = name), vjust = 0, size = 3, lwd = 0, straight = TRUE, color = legend_items$labelcol[7]), sigma = 1, colour = "white", expand = 2) + 
+      
+      # Add provinces and territories
+      #geom_sf(data = PROV, fill = NA, col = "grey", lwd = 0.5, lty = 2) +
+      
+      # Suppress Axis Labels
+      xlab("") + ylab("") +
+      
+      # SiteCode/ KBASiteID Label
+      #ggfx::with_outer_glow(
+      geom_sf_text(aes(label = ifelse(published_site, sitecode, paste("KBASiteID", kbasiteid))),
+                   family = "opensans", fontface = "bold",
+                   size = 6, colour = "black") + #,
+      #colour = "white",  # halo color
+      #sigma  = 0,        # blur (0–1 crisp; >1 softer)
+      #expand = 0.8         # halo thickness
+      #) +
+      
+      #annotations (scale and north arrow) (from ggspatial::)
+      annotation_scale(aes(location = "bl"), pad_x = unit(2,"cm"), pad_y = unit(0.35,"cm"), style = "ticks", line_width = 2) + 
+      annotation_north_arrow(aes(location = "bl"), pad_x = unit(0.5,"cm"), pad_y = unit(0.2,"cm"), height = unit(1, "cm"), width = unit(1, "cm"), style = north_arrow_orienteering) +
+      
+      #Theme
+      theme_void() + #removes graticule lines
+      theme(
+        plot.title = element_blank(),
+        axis.line = element_blank(), 
+        panel.background = element_rect(colour = "black", linewidth = 1),
+        panel.ontop = TRUE,  # <-- ensures the border (and grid) are drawn on top of geoms
+        plot.margin = grid::unit(c(0, 0, 0, 0), "mm")
+      )
+    
+    # Final coordinate zoom (apply after adding all the labels and things to make sure the image is only the bb)
+    quiet(KBASiteMap_LC <- KBASiteMap_LC + coord_sf(xlim = c(bb$xmin, bb$xmax), ylim = c(bb$ymin, bb$ymax), expand = F))
+    
+    #Display 
+    KBASiteMap_LC
+    
+  }
+  #
+  ## KBASiteMap_BD (biodiversity element dist, page 4)####
+  #Only make the map if there are biodiv element dist entries
+  if(nrow(DBS_BiodivElementDistribution) > 0 & BD){
+    
+    # Create palate based on the number of biodiv elements in site. Just uses landcover colours for simplicity
+    #bd_fills <- filter(legend_items, !is.na(nalcmsID))$fill # max 15
+    #bd_fills <- bd_fills[1:nrow(DBS_BiodivElementDistribution)] # filter for number of total bd entries
+    #DBS_BiodivElementDistribution$fill <- bd_fills 
+    # Determined by Birds Canada staff to be not 'visually appealing.'
+    
+    # Create colour blind friendly palatte, filter for number of total bd entries
+    bd_fills <- viridisLite::turbo(nrow(DBS_BiodivElementDistribution)) # filter for number of total bd entries
+    #bd_fills <- viridisLite::inferno(nrow(DBS_BiodivElementDistribution)) # filter for number of total bd entries
+    #bd_fills <- viridisLite::plasma(nrow(DBS_BiodivElementDistribution)) # filter for number of total bd entries
+    #bd_fills <- viridisLite::rocket(nrow(DBS_BiodivElementDistribution)) # filter for number of total bd entries
+    #bd_fills <- viridisLite::magma(nrow(DBS_BiodivElementDistribution)) # filter for number of total bd entries
+    #bd_fills <- viridisLite::mako(nrow(DBS_BiodivElementDistribution)) # filter for number of total bd entries
+    #bd_fills <- viridisLite::cividis(nrow(DBS_BiodivElementDistribution)) # filter for number of total bd entries
+    
+    DBS_BiodivElementDistribution$fill <- bd_fills
+    
+    # Create map
+    KBASiteMap_BD <- DBS_KBASite %>%
+      
+      #start plot
+      ggplot()+
+      
+      #basemap (from basemaps::get_types())
+      basemap_gglayer(
+        ext = bb_basemap, 
+        map_service = "maptiler", 
+        map_type = "basic",
+        map_token = maptiler_api,
+        map_res = ifelse(big_site, 1, 1)
+      )+
+      
+      # add biodiv element dist polygons
+      geom_sf(data = DBS_BiodivElementDistribution, aes(fill = fill), col = "black", show.legend = FALSE, alpha = 0.5) + 
+      
+      # both above use identity for fill
+      scale_fill_identity() +
+      
+      # Adding KBA polygon
+      # 1) Bottom: thick black solid
+      geom_sf(data = DBS_KBASite, color = "black", fill = NA, linewidth = 1.6, lineend = "butt", linejoin = "round") +
+      # 2) Top: thinner white dashed (tweak dash style to taste)
+      geom_sf(data = DBS_KBASite, color = "white", fill = NA, linewidth = 0.7,
+              linetype = "longdash", lineend = "butt", linejoin = "round") +
+      
+      # Suppress Axis Labels
+      xlab("") + ylab("") +
+      
+      # SiteCode/ KBASiteID Label
+      #ggfx::with_outer_glow(
+      geom_sf_text(aes(label = ifelse(!published_site, paste("KBASiteID", kbasiteid), sitecode)),
+                   family = "opensans", fontface = "bold",
+                   size = 6, colour = "black", alpha = 1) +#,
+      #colour = "white",  # halo color
+      #sigma  = 0,        # blur (0–1 crisp; >1 softer)
+      #expand = 2         # halo thickness
+      #) +
+      
+      #annotations (scale and north arrow) (from ggspatial::)
+      annotation_scale(aes(location = "bl"), pad_x = unit(2,"cm"), pad_y = unit(0.35,"cm"), style = "ticks", line_width = 2) + 
+      annotation_north_arrow(aes(location = "bl"), pad_x = unit(0.5,"cm"), pad_y = unit(0.2,"cm"), height = unit(1, "cm"), width = unit(1, "cm"), style = north_arrow_orienteering) +
+      
+      #Theme
+      theme_void() + #removes graticule lines
+      theme(
+        plot.title = element_blank(),
+        axis.line = element_blank(), 
+        panel.background = element_rect(colour = "black", linewidth = 1),
+        panel.ontop = TRUE,  # <-- ensures the border (and grid) are drawn on top of geoms
+        plot.margin = grid::unit(c(0, 0, 0, 0), "mm")
+      )
+    
+    # Final coordinate zoom (apply after adding all the labels and things to make sure the image is only the bb)
+    quiet(KBASiteMap_BD <- KBASiteMap_BD + coord_sf(xlim = c(bb$xmin, bb$xmax), ylim = c(bb$ymin, bb$ymax), expand = F))
+    
+    #Display 
+    KBASiteMap_BD
+  }
+  #
+  ## Inset map (MiddleTop LH) ####
+  
+  # filter for KBA province
+  prov_sub <- 
+    filter(PROV, PRENAME == DBS_KBASite$jurisdiction_en) %>% # FIX may also need adjoining for sites overlapping multiple jurisdictions
+    st_transform(.,3857) %>% # Set CRS to match 
+    st_make_valid()
+  
+  # Extract bounding box for inset map
+  bb_prov <- st_bbox(prov_sub)
+  bb_prov_poly <- st_as_sfc(bb_prov) %>% st_as_sf()
+  
+  # Expanding bounding box for white mask by arbitrary buffer to deal with rasters over bounding box edge
+  buffer <- 100000 # trial and error
+  bb_mask <- bb_prov
+  bb_mask[1:2] <- bb_mask[1:2] - buffer
+  bb_mask[3:4] <- bb_mask[3:4] + buffer
+  bb_mask_poly <- st_as_sfc(bb_mask) %>% st_as_sf() %>% st_make_valid()
+  
+  # Create the outside_mask: prov bounding box + arbitrary buffer - rectangle minus province
+  quiet(outside_mask <- st_difference(bb_mask_poly, prov_sub))
+  
+  # Inset Map
+  KBAInset <- 
+    
+    #Start Plot with KBA bounding box
+    ggplot(bb_poly) +
+    
+    # Add basemap (not an option in function selection, but could be)
+    #basemap_gglayer(ext = bb_prov, map_service = "osm", map_type = "topographic") +
+    #basemap (from basemaps::get_types())
+    basemap_gglayer(
+      ext = bb_prov, 
+      map_service = "esri", 
+      map_type = "world_shaded_relief",
+      #map_token = maptiler_api, 
+      map_res = 1
+    )+
+    
+    scale_fill_identity() + # needed for basemap. 
+    
+    # Draw mask to hide basemap tiles outside the province
+    geom_sf(data = outside_mask, inherit.aes = FALSE, color = NA, fill = "white") +
+    
+    # Province data (data from PROV in canadianmaps::) 
+    #geom_prov(col = "black", fill = "white")+
+    geom_sf(data = prov_sub, fill = NA, col = "#686868ff", lwd = 0.1) +
+    
+    # Make sure coord_sf uses the same CRS as your working layers and set limits
+    coord_sf(crs = 3857, xlim = c(bb_prov$xmin, bb_prov$xmax), ylim = c(bb_prov$ymin, bb_prov$ymax), expand = F) +
+    
+    # Visualize bb_poly
+    geom_sf(linewidth=1.5, show.legend = FALSE, col="#2F4858",fill=NA) + 
+    
+    #Labels
+    xlab("") + ylab("") +
+    
+    # Set theme elements
+    theme(
+      panel.border = element_blank(),
+      panel.background = element_blank(),
+      panel.grid = element_blank(),
+      axis.ticks = element_blank(),
+      axis.text = element_blank()
+    )
+  
+  #Display
+  KBAInset
+  #
+  ## Logo and Name (MiddleTop RH) ####
+  # KBA Logo 
+  KBALogo <- paste0(googleDrive,"/7. Communications/0_KBA logos and brand guidelines/Canada KBA logos/plural (default)/Canada_KBA_EN_plural_darktext_crop.png")
+  
+  # Plot KBA Logo from Source Path 
+  t_eng <- "Key Biodiversity Areas"
+  t_fr <- "Zones cl\u00E9s pour la \nbiodiversit\u00E9"
+  
+  # Read image and wrap as a grob
+  KBALogoR <- rasterGrob(readPNG(KBALogo), interpolate = TRUE)
+  
+  # Make a 3-row, 1-column gtable
+  # heights: image row gets more space; tweak as needed
+  KBACorner <- gtable(
+    widths  = unit(1, "null"),
+    heights = unit.c(unit(3, "cm"), unit(1, "cm"), unit(0.5, "cm"))
+  )
+  
+  # Build text grobs (centered; change gp for styling)
+  tg_eng <- textGrob(t_eng, x = 0.5, y = 0.5, just = "centre",
+                     gp = gpar(fontface = "bold", cex = 1))
+  tg_fr <- textGrob(t_fr, x = 0.5, y = 0.5, just = "centre",
+                    gp = gpar(fontface = "italic", family = "rift", col = "#666666", fontsize = 12))
+  
+  
+  # Place grobs: image in row 1, text lines in rows 2 and 3
+  KBACorner <- gtable_add_grob(KBACorner, list(KBALogoR), t = 1, l = 1)
+  #KBACorner <- gtable_add_grob(KBACorner, list(tg_eng), t = 2, l = 1)
+  KBACorner <- gtable_add_grob(KBACorner, list(tg_fr), t = 2, l = 1)
+  
+  # (Optional) add padding around the whole table
+  KBACorner <- gtable_add_padding(KBACorner, padding = unit(c(3, 3, 3, 3), "mm"))
+  
+  # Draw
+  grid.newpage(); grid.draw(KBACorner)
+  
+  
+  #
+  ## Legend grob functions for symbols and vectors ####
+  
+  # Fill swatch grob function (for boxes in legend)
+  grob_fill <- function(fill, border = "black", alpha = 1) {
+    grobTree(
+      rectGrob(
+        gp = gpar(fill = fill, col = border, lwd = 1.2, alpha = alpha), 
+        width = unit(1, "npc"), 
+        height = unit(1, "npc")
+      )
+    )
+  }
+  
+  # Line symbol grob function (For lines)
+  grob_line <- function(col = "black", lty = 1, lwd = 2) {
+    grobTree(
+      linesGrob(x = unit(c(0.1, 0.9), "npc"),
+                y = unit(c(0.5, 0.5), "npc"),
+                gp = gpar(col = col, lwd = lwd, lty = lty))
+    )
+  }
+  
+  # Number-in-box grob (for class codes like <1, 1, 3, 89 in boxes) function
+  grob_boxnum <- function(text, fill = "white", col = "black") {
+    grobTree(
+      rectGrob(
+        gp = gpar(fill = fill, col = col, lwd = 1.2), 
+        width = unit(1, "npc"), 
+        height = unit(1, "npc")
+      ),
+      textGrob(
+        label = text, 
+        gp = gpar(col = "black", fontsize = ts_boxnum, fontface = "bold", family = "opensans")
+      )
+    )
+  }
+  
+  # KBA alternating black and white bands
+  grob_kba <- function() {
+    grobTree(
+      rectGrob(gp = gpar(fill = "white", col = "black", lwd = 5, lty = 1)),
+      rectGrob(height = unit(0.9, "npc"), width = unit(0.9, "npc"), gp = gpar(fill = NA, col = "white", lwd = 1, lty = "longdash", lineend = "butt", linejoin = "round"))
+    )
+  }
+  
+  # Vectors for column widths
+  cw_text <- 6.5 # width of text columns in cm, needs to align with wrap_length above
+  cw_middle <- 0.75 # width of middle column in cm, adjusted manually
+  
+  # Vectors for row heights
+  rh <- 0.5 # height of column in cm, halved for line entries in legend to save space
+  
+  # Vector for gap
+  gap <- 0.01 # used below in the text drawing section, units in 'npc'
+  
+  # Text sizes
+  ts_title <- 10 # For 'Legend' 
+  ts_text <- 6 # for each line in the legend
+  ts_boxnum <- 8 # for box number entry
+  ts_boxnumExp <- 5 # for explanation under LC legend
+  
+  #
+  ### Legend_BM gtable ####
+  
+  if (BM) {#only create imagery map if requested
+    # Vectors for number of elements in legend table
+    legend_items_BM <- filter(legend_items, BM == 1) # filtering out Land Cover
+    n <- nrow(legend_items_BM)
+    
+    # Set column and row heights and widths
+    
+    #Set column widths and heights
+    col_widths <- unit.c(unit(cw_text, "cm"), unit(cw_middle, "cm"), unit(cw_text, "cm")) # 3 columns
+    row_heights <- unit(rep(rh, n),"cm") # regular row heights because less entries in this table
+    
+    # Specify vectors for table 
+    Legend_BM <- gtable(widths = col_widths, heights = row_heights)
+    
+    # Add a title row at the top (bilingual headers)
+    Legend_BM <- gtable_add_rows(Legend_BM, heights = unit(rh/2, "cm"), pos = 0) # empty row over titles to space from Top grobs
+    Legend_BM <- gtable_add_rows(Legend_BM, heights = unit(rh*2, "cm"), pos = 1) # row for legend titles
+    Legend_BM <- gtable_add_rows(Legend_BM, heights = unit(rh/2, "cm"), pos = 2) # empty row under titles
+    row_offset <- 3 # Offset for looping through the actual data rows (titles + spacer occupy 3 rows in gtable indexing)
+    
+    # English title
+    Legend_BM <- gtable_add_grob( 
+      Legend_BM,
+      grobs = textGrob(
+        "Legend", 
+        x = unit((1-gap), "npc"), just = "right",
+        gp = gpar(fontsize = ts_title, family = "opensans", fontface = "bold")),
+      t = 2, l = 1
+    )
+    
+    # French title
+    Legend_BM <- gtable_add_grob( 
+      Legend_BM,
+      grobs = textGrob(
+        "L\u00E9gende", # Escaping french character
+        x = unit(gap, "npc"), just = "left",
+        gp = gpar(fontsize = ts_title, family = "opensans", fontface = "bold")), 
+      t = 2, l = 3
+    )
+    
+    # Loop through each row and produce the English Text, Symbol, and French Text for each row
+    for (i in seq_len(n)) {
+      # Vector r for r in the gtable intended, i will be row in legend_items_BM
+      r <- i + row_offset
+      
+      # Left text (English)
+      Legend_BM <- gtable_add_grob(
+        Legend_BM,
+        grobs = textGrob(
+          legend_items_BM$eng[i],
+          x = unit((1-gap), "npc"), just = "right",
+          gp = gpar(lineheight = 0.75, fontsize = ts_text, family = "opensans")
+        ),
+        t = r, l = 1
+      )
+      
+      # Middle symbol grob 
+      sym <- switch(
+        legend_items_BM$type[i],
+        "fill"   = grob_fill(legend_items_BM$fill[i], legend_items_BM$border[i]),
+        "line"   = if (i == 1) grob_kba() else grob_line(legend_items_BM$lcol[i], legend_items_BM$lty[i], legend_items_BM$lwd[i]),
+        "boxnum" = grob_boxnum(legend_items_BM$perc[i], fill = legend_items_BM$fill[i], col = legend_items_BM$border[i])
+      )
+      Legend_BM <- gtable_add_grob(Legend_BM, grobs = sym, t = r, l = 2)
+      
+      # Right text (French)
+      Legend_BM <- gtable_add_grob(
+        Legend_BM,
+        grobs = textGrob(
+          legend_items_BM$fr[i],
+          x = unit(gap, "npc"), just = "left",
+          gp = gpar(lineheight = 0.75, fontsize = ts_text, family = "opensans")
+        ),
+        t = r, l = 3
+      )
+    }
+    
+    # Display
+    grid.newpage(); grid.draw(Legend_BM)
+  }
+  #
+  ### Legend_IM gtable ####
+  
+  if (IM) {#only create imagery map if requested
+    # Vectors for number of elements in legend table
+    legend_items_IM <- filter(legend_items, IM == 1) # filtering out Land Cover
+    n <- nrow(legend_items_IM)
+    
+    # Set column and row heights and widths
+    
+    #Set column widths and heights
+    col_widths <- unit.c(unit(cw_text, "cm"), unit(cw_middle, "cm"), unit(cw_text, "cm")) # 3 columns
+    row_heights <- unit(rep(rh, n),"cm") # regular row heights because less entries in this table
+    
+    # Specify vectors for table 
+    Legend_IM <- gtable(widths = col_widths, heights = row_heights)
+    
+    # Add a title row at the top (bilingual headers)
+    Legend_IM <- gtable_add_rows(Legend_IM, heights = unit(rh/2, "cm"), pos = 0) # empty row over titles to space from Top grobs
+    Legend_IM <- gtable_add_rows(Legend_IM, heights = unit(rh*2, "cm"), pos = 1) # row for legend titles
+    Legend_IM <- gtable_add_rows(Legend_IM, heights = unit(rh/2, "cm"), pos = 2) # empty row under titles
+    row_offset <- 3 # Offset for looping through the actual data rows (titles + spacer occupy 3 rows in gtable indexing)
+    
+    # English title
+    Legend_IM <- gtable_add_grob( 
+      Legend_IM,
+      grobs = textGrob(
+        "Legend", 
+        x = unit((1-gap), "npc"), just = "right",
+        gp = gpar(fontsize = ts_title, family = "opensans", fontface = "bold")),
+      t = 2, l = 1
+    )
+    
+    # French title
+    Legend_IM <- gtable_add_grob( 
+      Legend_IM,
+      grobs = textGrob(
+        "L\u00E9gende", # Escaping french character
+        x = unit(gap, "npc"), just = "left",
+        gp = gpar(fontsize = ts_title, family = "opensans", fontface = "bold")), 
+      t = 2, l = 3
+    )
+    
+    # Loop through each row and produce the English Text, Symbol, and French Text for each row
+    for (i in seq_len(n)) {
+      # Vector r for r in the gtable intended, i will be row in legend_items
+      r <- i + row_offset
+      
+      # Left text (English)
+      Legend_IM <- gtable_add_grob(
+        Legend_IM,
+        grobs = textGrob(
+          legend_items$eng[i],
+          x = unit((1-gap), "npc"), just = "right",
+          gp = gpar(lineheight = 0.75, fontsize = ts_text, family = "opensans")
+        ),
+        t = r, l = 1
+      )
+      
+      # Middle symbol grob 
+      sym <- switch(
+        legend_items$type[i],
+        "fill"   = grob_fill(legend_items$fill[i], legend_items$border[i]),
+        "line"   = if (i == 1) grob_kba() else grob_line(legend_items$lcol[i], legend_items$lty[i], legend_items$lwd[i]),
+        "boxnum" = grob_boxnum(legend_items$perc[i], fill = legend_items$fill[i], col = legend_items$border[i])
+      )
+      Legend_IM <- gtable_add_grob(Legend_IM, grobs = sym, t = r, l = 2)
+      
+      # Right text (French)
+      Legend_IM <- gtable_add_grob(
+        Legend_IM,
+        grobs = textGrob(
+          legend_items$fr[i],
+          x = unit(gap, "npc"), just = "left",
+          gp = gpar(lineheight = 0.75, fontsize = ts_text, family = "opensans")
+        ),
+        t = r, l = 3
+      )
+    }
+    
+    # Display
+    grid.newpage(); grid.draw(Legend_IM)
+  }
+  #
+  ### Legend_LC gtable ####
+  
+  if (LC) { #only make a land cover map if requested
+    # Vectors for number of elements in legend table
+    legend_items_LC <- filter(legend_items, LC == 1) # filtering out Land Cover
+    n <- nrow(legend_items_LC)
+    
+    #Set column widths and heights
+    col_widths <- unit.c(unit(cw_text, "cm"), unit(cw_middle, "cm"), unit(cw_text, "cm")) # 3 columns
+    row_heights <- unit.c(unit(ifelse(!is.na(legend_items_LC$nalcmsID)|legend_items_LC$eng == "Unclassified", rh, rh/2), "cm"))
+    row_heights[1] <- unit(rh, "cm") # Setting the first entry, KBA, to regular height. 
+    
+    # Specify vectors for table 
+    Legend_LC <- gtable(widths = col_widths, heights = row_heights)
+    
+    # Add a title row at the top (bilingual headers)
+    Legend_LC <- gtable_add_rows(Legend_LC, heights = unit(rh/2, "cm"), pos = 0) # empty row over titles to space from Top grobs
+    Legend_LC <- gtable_add_rows(Legend_LC, heights = unit(rh*2, "cm"), pos = 1) # row for legend titles
+    Legend_LC <- gtable_add_rows(Legend_LC, heights = unit(rh/2, "cm"), pos = 2) # empty row under titles
+    row_offset <- 3 # Offset for looping through the actual data rows (titles + spacer occupy 3 rows in gtable indexing)
+    
+    # English title
+    Legend_LC <- gtable_add_grob( 
+      Legend_LC,
+      grobs = textGrob(
+        "Legend", 
+        x = unit((1-gap), "npc"), just = "right",
+        gp = gpar(fontsize = ts_title, family = "opensans", fontface = "bold")),
+      t = 2, l = 1
+    )
+    
+    # French title
+    Legend_LC <- gtable_add_grob( 
+      Legend_LC,
+      grobs = textGrob(
+        "L\u00E9gende", # Escaping french character
+        x = unit(gap, "npc"), just = "left",
+        gp = gpar(fontsize = ts_title, family = "opensans", fontface = "bold")), 
+      t = 2, l = 3
+    )
+    
+    # Loop through each row and produce the English Text, Symbol, and French Text for each row
+    for (i in seq_len(n)) {
+      # Vector r for r in the gtable intended, i will be row in legend_items_LC
+      r <- i + row_offset
+      
+      # Left text (English)
+      Legend_LC <- gtable_add_grob(
+        Legend_LC,
+        grobs = textGrob(
+          legend_items_LC$eng[i],
+          x = unit((1-gap), "npc"), just = "right",
+          gp = gpar(lineheight = 0.75, fontsize = ts_text, family = "opensans")
+        ),
+        t = r, l = 1
+      )
+      
+      # Middle symbol grob 
+      sym <- switch(
+        legend_items_LC$type[i],
+        "fill"   = grob_fill(legend_items_LC$fill[i], legend_items_LC$border[i]),
+        "line"   = if (i == 1) grob_kba() else grob_line(legend_items_LC$lcol[i], legend_items_LC$lty[i], legend_items_LC$lwd[i]),
+        "boxnum" = grob_boxnum(legend_items_LC$perc[i], fill = legend_items_LC$fill[i], col = legend_items_LC$border[i])
+      )
+      Legend_LC <- gtable_add_grob(Legend_LC, grobs = sym, t = r, l = 2)
+      
+      # Right text (French)
+      Legend_LC <- gtable_add_grob(
+        Legend_LC,
+        grobs = textGrob(
+          legend_items_LC$fr[i],
+          x = unit(gap, "npc"), just = "left",
+          gp = gpar(lineheight = 0.75, fontsize = ts_text, family = "opensans")
+        ),
+        t = r, l = 3
+      )
+    }
+    
+    # Create grob with descriptions at bottom of table (if KBA is published and numbers are in KBALandCover)
+    if(published_site){
+      g_legend     <- textGrob(
+        "Numbers in the legend boxes indicate the approximate percentage of the KBA covered by each land cover type\n
+        Les chiffres dans les rectangles de la l\u00E9gende indiquent le pourcentage approximatif de la KBA \nqui est concern\u00E9 par chacun des types de couverture terrestre",
+        gp = gpar(family = "opensans", fontsize = ts_boxnumExp)
+      )
+      
+      # Add to gtable
+      Legend_LC <- gtable_add_rows(Legend_LC, heights = unit(1, "cm"), pos = r) # r should be equal to the max of the table
+      Legend_LC <- gtable_add_grob(Legend_LC, g_legend,  t = (r+1), l = 1, b = (r+1), r = 3) # starting in new row, spreading across all three columns. 
+    }
+    
+    # Display
+    grid.newpage(); grid.draw(Legend_LC)
+  }
+  #
+  ### Legend_BD gtable ####
+  
+  #Only make map if there are BiodivElementDist entries
+  if (nrow(DBS_BiodivElementDistribution) > 0 & BD){
+    
+    # Vectors for number of elements in legend table
+    legend_items_BD <- filter(legend_items, BD == 1) %>% # filtering only desired entries (just KBA so far)
+      select(type, eng, fr, fill) #select columns to match with bd_data below
+    
+    # Add Biodiversity entries
+    bd_data <- 
+      left_join(
+        select(DBS_BiodivElementDistribution, biodivelementdistributionid, fill), 
+        select(DBS_SpeciesAtSite, biodivelementdistributionid, speciesatsiteid, speciesid),
+        by = "biodivelementdistributionid"
+      ) %>%
+      left_join(
+        .,
+        select(DBS_BIOTICS_ELEMENT_NATIONAL, speciesid, national_scientific_name, national_engl_name, national_fr_name),
+        by = "speciesid"
+      ) %>%
+      mutate(
+        type = "fill",
+        eng = paste(national_engl_name, paste0("(", national_scientific_name, ")"), sep = "\n"),
+        fr = paste(national_fr_name, paste0("(", national_scientific_name, ")"), sep = "\n")
+      ) %>%
+      as.data.frame() %>%
+      select(type, eng, fr, fill)
+    
+    # Bind tables
+    legend_items_BD <- rbind(legend_items_BD, bd_data)
+    
+    # Wrap text in french and english columns (JIC long species name)
+    wrap_length <- 50 # num char chosen based on Trial and Error, dependent on width of legend columns in Part 3
+    wrap_text <- function(x) {x |> strwrap(width = wrap_length) |> paste(collapse = "\n")} 
+    legend_items_BD$fr <- sapply(legend_items_BD$fr, wrap_text)
+    legend_items_BD$eng <- sapply(legend_items_BD$eng, wrap_text)
+    
+    #Get number of rows
+    n <- nrow(legend_items_BD)
+    
+    # Set column widths and heights
+    col_widths <- unit.c(unit(cw_text, "cm"), unit(cw_middle, "cm"), unit(cw_text, "cm")) # 3 columns
+    row_heights <- unit(rep(1.25*rh, n),"cm") # regular row heights because less entries in this table, need large enough for three rows of text
+    
+    # Specify vectors for table 
+    Legend_BD <- gtable(widths = col_widths, heights = row_heights)
+    
+    # Add a title row at the top (bilingual headers)
+    Legend_BD <- gtable_add_rows(Legend_BD, heights = unit(rh/2, "cm"), pos = 0) # empty row over titles to space from Top grobs
+    Legend_BD <- gtable_add_rows(Legend_BD, heights = unit(rh*2, "cm"), pos = 1) # row for legend titles
+    Legend_BD <- gtable_add_rows(Legend_BD, heights = unit(rh/2, "cm"), pos = 2) # empty row under titles
+    row_offset <- 3 # Offset for looping through the actual data rows (titles + spacer occupy 3 rows in gtable indexing)
+    
+    # English title
+    Legend_BD <- gtable_add_grob( 
+      Legend_BD,
+      grobs = textGrob(
+        "Legend", 
+        x = unit((1-gap), "npc"), just = "right",
+        gp = gpar(fontsize = ts_title, family = "opensans", fontface = "bold")),
+      t = 2, l = 1
+    )
+    
+    # French title
+    Legend_BD <- gtable_add_grob( 
+      Legend_BD,
+      grobs = textGrob(
+        "L\u00E9gende", # Escaping french character
+        x = unit(gap, "npc"), just = "left",
+        gp = gpar(fontsize = ts_title, family = "opensans", fontface = "bold")), 
+      t = 2, l = 3
+    )
+    
+    # Loop through each row and produce the English Text, Symbol, and French Text for each row
+    for (i in seq_len(n)) {
+      # Vector r for r in the gtable intended, i will be row in legend_items
+      r <- i + row_offset
+      
+      # Left text (English)
+      Legend_BD <- gtable_add_grob(
+        Legend_BD,
+        grobs = textGrob(
+          legend_items_BD$eng[i],
+          x = unit((1-gap), "npc"), just = "right",
+          gp = gpar(lineheight = 0.75, fontsize = ts_text, family = "opensans")
+        ),
+        t = r, l = 1
+      )
+      
+      # Middle symbol grob 
+      sym <- switch(
+        legend_items_BD$type[i],
+        "fill"   = grob_fill(legend_items_BD$fill[i], legend_items_BD$border[i], alpha = 0.5), 
+        "line"   = grob_kba() #if (i == 1) grob_kba() else grob_line(legend_items_BD$lcol[i], legend_items_BD$lty[i], legend_items_BD$lwd[i]), #won't work without edits, not needed
+        #"boxnum" = grob_boxnum(legend_items_BD$perc[i], fill = legend_items_BD$fill[i], col = legend_items_BD$border[i]) #won't work without edits, not needed
+      )
+      Legend_BD <- gtable_add_grob(Legend_BD, grobs = sym, t = r, l = 2)
+      
+      # Right text (French)
+      Legend_BD <- gtable_add_grob(
+        Legend_BD,
+        grobs = textGrob(
+          legend_items_BD$fr[i],
+          x = unit(gap, "npc"), just = "left",
+          gp = gpar(lineheight = 0.75, fontsize = ts_text, family = "opensans")
+        ),
+        t = r, l = 3
+      )
+    } # End Loop
+    
+    # Create grob with descriptions at bottom of table (if KBA is published and numbers are in KBALandCover)
+    g_legend     <- textGrob(
+      paste("Biodiversity element distributions represent the area where specific 
+            biodiversity elements are found within a KBA.\n
+            Les distributions d'\u00E9l\u00E9ments de biodiversit\u00E9 repr\u00E9sentent les zones o\u00F9 se situent 
+            les diff\u00E9rents \u00E9l\u00E9ments de biodiversit\u00E9 au sein d'une KBA."),
+      gp = gpar(family = "opensans", fontsize = ts_boxnumExp)
+    )
+    
+    # Add to gtable
+    Legend_BD <- gtable_add_rows(Legend_BD, heights = unit(4, "cm"), pos = r) # r should be equal to the max of the table
+    Legend_BD <- gtable_add_grob(Legend_BD, g_legend,  t = (r+1), l = 1, b = (r+1), r = 3) # starting in new row, spreading across all three columns. 
+    
+    # Add final gap with BD element dist labels
+    g_legendEng <- textGrob("Biodiversity Element \nDistribution", x = unit((1-gap), "npc"), just = "right", gp = gpar(family = "opensans", fontsize = ts_text+2, fontface = "bold"))
+    g_legendFr <- textGrob("Distributions des \u00E9l\u00E9ments de \nbiodiversit\u00E9", x = unit(gap, "npc"), just = "left", gp = gpar(family = "opensans", fontsize = ts_text+2, fontface = "bold"))
+    Legend_BD <- gtable_add_rows(Legend_BD, heights = unit(rh/2, "cm"), pos = 4) # empty row to create gap
+    Legend_BD <- gtable_add_rows(Legend_BD, heights = unit(rh*1.5, "cm"), pos = 5) # large header for titles
+    Legend_BD <- gtable_add_grob(Legend_BD, g_legendEng,  t = 6, l = 1) # starting in new row
+    Legend_BD <- gtable_add_grob(Legend_BD, g_legendFr,  t = 6, l = 3) # starting in new row
+    
+    
+    # Display
+    grid.newpage(); grid.draw(Legend_BD)
+    
+  } # End IF
+  #
+  ## Text Blocks (bottom) ####
+  # Text Wrapper
+  wrap_length2 <- 67 # num char chosen based on Trial and Error, dependent on width of legend columns
+  wrap_text2 <- function(x) {x |> strwrap(width = wrap_length2) |> paste(collapse = "\n")} 
+  
+  #Create grobs
+  g_block1   <- textGrob(
+    wrap_text2(paste0(
+      "Map generated by KBA Canada (kba@kbacanada.org) on ", Sys.Date(),". Spatial Reference: EPGS:3857 (WGS 84/ Pseudo-Mercator). ", 
+      "Data Sources: ",
+      "KBA Canada (", ifelse(!published_site, "https://kbacanada.org/", paste0("https://kbacanada.org/site/?SiteCode=", DBS_KBASite$sitecode)), "); ", 
+      "Government of Canada (2020 Land Cover of Canada, https://search.open.canada.ca/opendata/); ",
+      "Open Street Maps (https://download.geofabrik.de/north-america/ canada-latest.osm.pbf); ",
+      "ESRI Basemaps (https://www.esri.com/); ",
+      "Maptiler Basemaps (https://cloud.maptiler.com/)."
+      
+    )
+    ),
+    x = 0.5, y = 0.5, gp = gpar(family = "opensans", fontsize = 5)
+  )
+  
+  #Create grobs
+  g_block2   <- textGrob(
+    wrap_text2(paste0(
+      "Carte produite par KBA Canada (kba@kbacanada.org) ", Sys.Date(),". R\u00E9f\u00E9rence spatiale: EPGS:3857 (WGS 84/ Pseudo-Mercator). ", 
+      "Sources de donn\u00E9es: ",
+      "KBA Canada (", ifelse(!published_site, "https://kbacanada.org/", paste0("https://kbacanada.org/site/?SiteCode=", DBS_KBASite$sitecode)), "); ", 
+      "Gouvernement du Canada (2020 Couverture terrestre du Canada, https://search.open.canada.ca/opendata/); ",
+      "Open Street Maps (https://download.geofabrik.de/north-america/ canada-latest.osm.pbf); ",
+      "ESRI fond cartographique (https://www.esri.com/); ",
+      "Maptiler fond cartographique (https://cloud.maptiler.com/)."
+    )
+    ),
+    x = 0.5, y = 0.5, gp = gpar(family = "opensans", fontsize = 5)
+  )
+  
+  # Create gtable
+  TextBlocks <- gtable(
+    widths  = unit.c(rep(unit((0.90*cw_text), "cm"),2)), # 1 column, uses width from legend section to match width
+    #widths  = unit.c(unit((2*cw_text + cw_middle), "cm")), # 1 column, uses width from legend section to match width
+    heights = unit.c(rep(unit(4, "cm"), 1)) # Creating each x cm row, 
+  )
+  
+  #Add grobs to gtable
+  TextBlocks <- gtable_add_grob(TextBlocks, g_block1, t = 1, l = 1)
+  TextBlocks <- gtable_add_grob(TextBlocks, g_block2, t = 1, l = 2)
+  
+  # Use in plot_grid: wrap the gtable as a grob-drawing plot
+  ggdraw() + draw_grob(TextBlocks)
+  
+  ## Edge (Right Edge with Names/Codes) ####
+  # Text
+  lab_top    <- DBS_KBASite$jurisdiction_en
+  lab_middle <- ifelse(published_site, DBS_KBASite$nationalname, paste("DRAFT BOUNDARY -", DBS_KBASite$nationalname))
+  lab_bottom <- ifelse(published_site, DBS_KBASite$sitecode, paste("KBASiteID", DBS_KBASite$kbasiteid))
+  
+  # Make a 3-row, 1-column gtable.
+  # Row heights are 'null' so they share space evenly.
+  Edge <- gtable(
+    widths  = unit(0.75, "cm"), #strip width
+    heights = unit(c(1.2, 4, 1.2), "null") # separations between terms
+  )
+  
+  # Add a light background strip
+  bg <- rectGrob(gp = gpar(fill = "#F4F0E8", col = NA))
+  Edge <- gtable_add_grob(Edge, bg, t = 1, l = 1, b = 3, r = 1, z = -Inf)
+  
+  # Build the three rotated text grobs
+  g_top <- textGrob(
+    lab_top,
+    rot = 90,
+    x = 0.5, y = 0.5,
+    just = "centre",
+    #gp = gpar(fontface = "bold", family = "opensans")
+    gp = gpar(fontface = "bold", fontfamily = "montserrat")
+  )
+  
+  g_mid <- textGrob(
+    lab_middle,
+    rot = 90,
+    x = 0.5, y = 0.5,
+    just = "centre",
+    #gp = gpar(fontface = "bold", family = "opensans")
+    gp = gpar(fontface = "bold", fontfamily = "montserrat")
+  )
+  
+  g_bot <- textGrob(
+    lab_bottom,
+    rot = 90,
+    x = 0.5, y = 0.5,
+    just = "centre",
+    #gp = gpar(fontface = "bold", family = "opensans")
+    gp = gpar(fontface = "bold", fontfamily = "montserrat")
+  )
+  
+  # Place each grob into its row
+  Edge <- gtable_add_grob(Edge, g_top, t = 1, l = 1)
+  Edge <- gtable_add_grob(Edge, g_mid, t = 2, l = 1)
+  Edge <- gtable_add_grob(Edge, g_bot, t = 3, l = 1)
+  
+  # Optional padding to give breathing room
+  Edge <- gtable::gtable_add_padding(Edge, padding = unit(c(2, 6, 2, 6), "mm"))  # top, right, bottom, left
+  
+  # Draw
+  grid.newpage();grid.draw(Edge)
+  
+  ## Left edge (Spaces KBASiteMap_LC from the edge) ####
+  
+  #Create gtable for empty rectangle
+  EdgeL <- gtable(
+    widths  = unit(0.75, "cm"), #strip width
+    heights = unit(c(1), "null")
+  )
+  
+  # Add an empty background strip
+  bg <- rectGrob(gp = gpar(fill = NA, col = NA))
+  EdgeL <- gtable_add_grob(EdgeL, bg, t = 1, l = 1, b = 1, r = 1, z = -Inf)
+  
+  # Draw
+  grid.newpage();grid.draw(EdgeL)
+  
+  #
+  # Format Final Map ####
+  # Status update in Function
+  cat("\nAll map components complete. Producing final map.\n")
+  
+  ## Create grobs for each vertical strip ####
+  
+  # Middle Top Section (With inset and KBA Logo side by side)
+  MiddleTop <- plot_grid(KBAInset, KBACorner, ncol = 2, rel_widths = c(1,1))
+  
+  # Create vector for relative heights
+  rel_heights <- c(1,2,0.75)
+  
+  # Middle Strip (With Middle Top, Legend_LC, Disclaimer Text, and Middle Bottom)
+  if(BM) {Middle_BM <- plot_grid(MiddleTop, Legend_BM, TextBlocks, nrow = 3, rel_heights = rel_heights)}
+  if(IM) {Middle_IM <- plot_grid(MiddleTop, Legend_IM, TextBlocks, nrow = 3, rel_heights = rel_heights)}
+  if(LC) {Middle_LC <- plot_grid(MiddleTop, Legend_LC, TextBlocks, nrow = 3, rel_heights = rel_heights)}
+  if(nrow(DBS_BiodivElementDistribution)>0 & BD){Middle_BD <- plot_grid(MiddleTop, Legend_BD, TextBlocks, nrow = 3, rel_heights = rel_heights)}
+  
+  #
+  ## Map processing Function #### 
+  # Vector for PDF file based on pathway entered into function
+  pathway_filename <- paste0(pathway, ifelse(!published_site, paste0("ID", KBASiteID, ".pdf"), paste0(DBS_KBASite$sitecode, ".pdf")))
+  
+  # Create function to allow looping and altering of dpi based on file size  
+  map_processing <- function(dpi) {
+    
+    # this is used instead of ggsave to maintain the right proportions based on page size
+    # the vectorized pdf was too large for the website, so write pdf, load and convert to png, then rewrite as pdf).
+    # Not a lot of processing time, especially compared to osm_extract. 
+    
+    ## Initial PDF Printing ##
+    cairo_pdf(pathway_filename, height = 8.5, width = 14)
+    
+    rel_widths <- c(0.1, 1.9, 1, 0.1)
+    
+    # Page 1 - Basemap
+    if (BM){
+      print(
+        plot_grid(
+          EdgeL,
+          KBASiteMap_BM,
+          Middle_BM,
+          Edge,
+          ncol = 4,
+          rel_widths = rel_widths
+        )
+      ) 
+    }
+    
+    # Page 2 - Imagery
+    if (IM){
+      print(
+        plot_grid(
+          EdgeL,
+          KBASiteMap_IM,
+          Middle_IM,
+          Edge,
+          ncol = 4,
+          rel_widths = rel_widths
+        )
+      ) 
+    }
+    # Page 3 - Land Cover
+    if (LC) {
+      print(
+        plot_grid(
+          EdgeL,
+          KBASiteMap_LC,
+          Middle_LC,
+          Edge,
+          ncol = 4,
+          rel_widths = rel_widths
+        )
+      )
+    }
+    
+    # Page 4 - BD Element Dists (if present)
+    if(nrow(DBS_BiodivElementDistribution) > 0 & BD){
+      print(
+        plot_grid(
+          EdgeL,
+          KBASiteMap_BD,
+          Middle_BD,
+          Edge,
+          ncol = 4,
+          rel_widths = rel_widths
+        )
+      )
+    }
+    
+    #End pdf
+    dev.off()
+    
+    ## Load and Create pngs to reduce file size ##
+    graphics.off()
+    gc()
+    Sys.sleep(0.5)
+    
+    # Start recreating pages as png files using the pdftools package
+    pages <- pdftools::pdf_info(pathway_filename)$pages
+    
+    # While loop for creating png of each page 
+    p <- 1
+    while (p <= pages){
+      # Determine filename for page
+      pathway_page <- paste0(gsub(".pdf", "", pathway_filename), "_", p, ".png")
+      
+      # Convert PDF
+      quiet(pdf_convert(pdf = pathway_filename, page = p, dpi = dpi, filenames = pathway_page))
+      
+      # Read png in R and assign to object
+      assign(paste0("p", p), rasterGrob(readPNG(pathway_page), interpolate = TRUE))
+      
+      # Delete files
+      file.remove(pathway_page)
+      
+      # Add counter at end of loop
+      p <- p + 1
+    }
+    
+    ## PDF Rewrite ##
+    cairo_pdf(pathway_filename, height = 8.5, width = 14)
+    
+    # Loop through pages
+    for(p in 1:pages){
+      print(plot_grid(get(paste0("p", p))))
+    }
+    
+    #End pdf
+    dev.off()
+    
+    # Pause before calculation
+    graphics.off()
+    gc()
+    Sys.sleep(0.5)
+    
+    # Calculate file size
+    pathway_filesize <- file.size(pathway_filename)/1000000 # megabytes 
+    
+    # Set return to the filesize 
+    return(pathway_filesize)
+    
+  }
+  
+  ## Apply Map Processing Function ####
+  # Initial processing at standard dpi
+  pathway_filesize <- map_processing(dpi)
+  
+  # Create modifiable DPI object
+  dpi_mod <- dpi
+  
+  # Only limit filesize if set as parameter
+  
+  if (limit_filesize) {
+    
+    # Loop through map_processing function with different dpi values
+    while(pathway_filesize > max_filesize) {
+      cat("Reducing DPI to decrease filesize.\n")
+      
+      # If the reduced dpi is greater than 0...
+      if(dpi_mod - dpi_reduction_factor >= dpi_min) { # arbitrary minimum, but text not really visible at 100
+        
+        #Decrease dpi by reduction factor
+        dpi_mod <- dpi_mod - dpi_reduction_factor
+        
+        #Process Map at new dpi
+        pathway_filesize <- map_processing(dpi_mod)
+        
+        # Return Status Check
+        cat("DPI =", dpi_mod,"File size =", pathway_filesize, "MB\n")
+        
+      } else {
+        # Print message
+        warning("DPI reduction to decrease file size below ", max_filesize, " MB failed. File size is ", pathway_filesize, 
+                " MB with a DPI of ", dpi_mod, 
+                ". Try increasing the maximum file size or removing the filesize limit and running the function again.")
+        
+        # Exit while loop
+        break
+      }
+    }
+  }
+  
+  ## Final PDF ####
+  
+  # Open PDF (could turn off if annoying, but helpful for testing)
+  if(open_pdf) {browseURL(pathway_filename)}
+  
+  # Calculate file size
+  Sys.sleep(0.5)
+  pathway_filesize <- file.size(pathway_filename)/1000000
+  
+  #Final status check
+  message("\nPDF map successfully saved as:", pathway_filename, "\n",
+          ifelse(open_pdf, "Map opened via browseURL function.\n", ""), 
+          "File Size =", pathway_filesize, "mb.\n", 
+          "DPI =", dpi_mod, "\n")
+  
+  ## Return table of info ####
+  # Create list of column names
+  tmp_names <- c("KBASiteID", "nationalname", "runtime", "filename", "filesize", "DPI")
+  
+  # Bind to table
+  tmp_times <- data.frame(matrix(
+    NA,
+    nrow = 1,
+    ncol = length(tmp_names),
+    dimnames = list(NULL, tmp_names)
+  ))
+  
+  # Extract Runtime
+  runtime <- round(Sys.time()- start, 2)
+  
+  # Populate temporary table
+  tmp_times$KBASiteID <- KBASiteID
+  tmp_times$nationalname <- DBS_KBASite$nationalname
+  tmp_times$runtime <- runtime
+  tmp_times$filename <- pathway_filename
+  tmp_times$filesize <- pathway_filesize # mb
+  tmp_times$DPI <- dpi_mod
+  
+  # Return table
+  return(tmp_times)
+  
+} # End function
+
+
+#
 #### Get taxonomic level (species or infraspecies) based on scientific name ####
 nameLevel <- function(name){
   
