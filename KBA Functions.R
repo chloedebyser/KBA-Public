@@ -3809,7 +3809,7 @@ map_KBASite_new <- function(
   filter_KBAEBARDatabase(KBASiteIDs = KBASiteID, RMUnfilteredDatasets = F)
   
   # Is published logic
-  published_site <- DBS_KBASite$sitestatus %in% c(6,7,8)
+  published_site <- DBS_KBASite$sitestatus %in% c(6,7,8,9,10)
   
   # Remove sensitive species at site 
   # just in case they're linked to internal polygons that are NOT supposed to be viewed, but are ALSO for a non-Sensitive species
